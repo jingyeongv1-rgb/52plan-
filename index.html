@@ -690,9 +690,14 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
     Object.keys(data).forEach(code => {
       if (storeMap[code]) return; // 이미 있으면 스킵
       const info = data[code];
+      
+      // 새 지점의 zones 데이터를 저장할 배열
+      let newZones = [];
+      let newOverrides = {};
+      
       storeMap[code] = {
-        zones: () => [],
-        overrides: () => ({}),
+        zones: () => newZones,
+        overrides: () => newOverrides,
         variable: () => [],
         name: info.name
       };
@@ -708,8 +713,73 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
         option.textContent = info.name;
         select.appendChild(option);
       }
+      
+      // 저장 드롭다운 메뉴에도 새 지점 추가
+      if (typeof updateSaveDropdown === 'function') {
+        updateSaveDropdown();
+      }
+      
+      // 새 지점의 실제 데이터 불러오기 + 실시간 감시
+      const storeDataRef = ref(db, 'plan2026/' + code);
+      onValue(storeDataRef, dataSnap => {
+        const storeData = dataSnap.val();
+        if (!storeData) return;
+        
+        // zones 데이터 업데이트
+        if (storeData.zones && Array.isArray(storeData.zones)) {
+          newZones.length = 0;
+          storeData.zones.forEach(z => newZones.push(z));
+          storeZonesSnapshot[code] = storeData.zones.map(z => Object.assign({}, z));
+        }
+        
+        // overrides 데이터 업데이트
+        if (storeData.userOverrides) {
+          Object.keys(newOverrides).forEach(k => delete newOverrides[k]);
+          Object.assign(newOverrides, storeData.userOverrides);
+          storeUserOverrides[code] = storeData.userOverrides;
+        }
+        
+        // 현재 보고 있는 지점이면 화면 갱신
+        if (typeof currentStore !== 'undefined' && code === currentStore) {
+          zones.length = 0;
+          newZones.forEach(z => zones.push(z));
+          if (storeData.userOverrides) {
+            Object.keys(userOverrides).forEach(k => delete userOverrides[k]);
+            Object.assign(userOverrides, storeData.userOverrides);
+          }
+          render(); renderPanel(); renderNav();
+          showToast('🔄 데이터 동기화됨');
+        }
+        
+        syncUI('saved', '동기화됨');
+      });
     });
-    syncUI('saved', '동기화됨');
+  });
+
+  // ── 공개설정 Firebase 동기화 ──
+  window._firebaseSavePublicMonths = async function(months) {
+    try {
+      await set(ref(db, 'plan2026/_settings/publicMonths'), months);
+      syncUI('saved', '공개설정 저장됨 ✓');
+    } catch(e) {
+      syncUI('error', '공개설정 저장 실패');
+      console.error('Firebase publicMonths save error:', e);
+    }
+  };
+
+  // 공개설정 실시간 수신
+  const publicMonthsRef = ref(db, 'plan2026/_settings/publicMonths');
+  onValue(publicMonthsRef, snap => {
+    const data = snap.val();
+    if (data && Array.isArray(data)) {
+      // 로컬에 저장
+      localStorage.setItem('publicMonths', JSON.stringify(data));
+      // 열람자면 화면 갱신
+      if (typeof isViewer !== 'undefined' && isViewer) {
+        if (typeof renderNav === 'function') renderNav();
+        if (typeof render === 'function') render();
+      }
+    }
   });
 </script>
 
@@ -3909,6 +3979,10 @@ function toggleMo(mo){
 }
 function saveMonthSettings(){
   setPublicMonths(tempPub);
+  // Firebase에도 저장
+  if(typeof window._firebaseSavePublicMonths === 'function'){
+    window._firebaseSavePublicMonths(tempPub);
+  }
   closeMonthModal();
   showToast('공개 설정: '+(tempPub.sort((a,b)=>a-b).map(m=>(m+1)+'월').join(', ')||'없음'));
 }
