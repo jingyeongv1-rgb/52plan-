@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>52주 AI 표준화</title>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
   --bg:#f0ede6;--surface:#fff;--border:#d8d0c0;
@@ -643,6 +644,44 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
     }
   };
 
+  // ── 새 지점 + 구역 함께 Firebase에 저장 ──
+  window._firebaseSaveStoreWithZones = async function(code, name, zones) {
+    try {
+      syncUI('syncing', '저장 중...');
+      const payload = {
+        zones: zones || [],
+        userOverrides: {},
+        name: name,
+        savedAt: Date.now()
+      };
+      await set(ref(db, 'plan2026/' + code), payload);
+      
+      // 지점 목록도 저장
+      const storesRef = ref(db, 'plan2026/_stores/' + code);
+      await set(storesRef, { code: code, name: name });
+      
+      syncUI('saved', '지점+도면 저장됨 ✓');
+    } catch(e) {
+      syncUI('error', '저장 실패');
+      console.error('Firebase store save error:', e);
+    }
+  };
+
+  // ── 지점 삭제 ──
+  window._firebaseDeleteStore = async function(code) {
+    try {
+      syncUI('syncing', '삭제 중...');
+      // 지점 데이터 삭제
+      await set(ref(db, 'plan2026/' + code), null);
+      // 지점 목록에서도 삭제
+      await set(ref(db, 'plan2026/_stores/' + code), null);
+      syncUI('saved', '삭제됨 ✓');
+    } catch(e) {
+      syncUI('error', '삭제 실패');
+      console.error('Firebase delete error:', e);
+    }
+  };
+
   // ── 저장된 지점 목록 불러오기 ──
   const storesRef = ref(db, 'plan2026/_stores');
   onValue(storesRef, snap => {
@@ -731,6 +770,7 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
         <option value="sp">송파점</option>
       </select>
       <button class="btn btn-gh" onclick="openAddStoreModal()" title="새 지점 추가">＋</button>
+      <button class="btn btn-gh" onclick="confirmDeleteStore()" title="현재 지점 삭제" style="color:#dc2626;">🗑</button>
     </div><span class="badge b-edit" id="modeTag">편집</span>
     <button class="btn btn-gh" onclick="toggleMode()">보기</button>
     <button class="btn btn-gh" onclick="openAddModal()">＋ 구역</button>
@@ -1303,10 +1343,25 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
 
 <!-- 지점 추가 모달 -->
 <div class="modal-bg" id="addStoreModal">
-  <div class="modal" style="max-width:340px;">
+  <div class="modal" style="max-width:400px;">
     <h3>🏪 새 지점 추가</h3>
     <div class="mf"><label>지점 코드 *</label><input id="newStoreCode" placeholder="예: yg (영문 소문자 2~4자)" maxlength="4" style="text-transform:lowercase"/></div>
     <div class="mf"><label>지점명 *</label><input id="newStoreName" placeholder="예: 용인점"/></div>
+    
+    <div style="border-top:1px dashed #e5e7eb;margin:12px 0;padding-top:12px;">
+      <div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:8px;">📊 엑셀 도면 업로드 (선택)</div>
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:8px;">엑셀 파일의 셀 병합 정보를 읽어 자동으로 도면을 생성합니다</div>
+      <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(this)"/>
+      <button onclick="document.getElementById('excelFileInput').click()" style="width:100%;padding:10px;background:#f0fdf4;border:1.5px dashed #86efac;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;color:#16a34a;cursor:pointer;">
+        📁 엑셀 파일 선택 (.xlsx)
+      </button>
+      <div id="excelFileName" style="font-size:11px;color:#16a34a;margin-top:6px;display:none;"></div>
+      <div id="excelSheetSelect" style="margin-top:8px;display:none;">
+        <label style="font-size:10px;font-weight:600;color:#6b7280;">시트 선택:</label>
+        <select id="sheetSelector" style="width:100%;padding:6px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:11px;margin-top:4px;"></select>
+      </div>
+    </div>
+    
     <div class="mbtns"><button class="mcancel" onclick="closeAddStoreModal()">취소</button><button class="mok" onclick="addNewStore()">추가</button></div>
   </div>
 </div>
@@ -1324,6 +1379,25 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
     <div class="mbtns"><button class="mcancel" onclick="closeModal()">취소</button><button class="mok" onclick="addZone()">추가</button></div>
   </div>
 </div>
+
+<!-- 지점 삭제 확인 모달 -->
+<div class="modal-bg" id="deleteStoreModal">
+  <div class="modal" style="max-width:340px;text-align:center;">
+    <h3 style="color:#dc2626;">🗑️ 지점 삭제</h3>
+    <div style="font-size:13px;color:#6b7280;margin:16px 0;line-height:1.6;">
+      <strong id="deleteStoreName" style="color:#111;"></strong> 을(를)<br>정말 삭제하시겠습니까?
+    </div>
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;margin-bottom:16px;">
+      <div style="font-size:11px;color:#dc2626;font-weight:600;">⚠️ 주의</div>
+      <div style="font-size:10px;color:#991b1b;margin-top:4px;">삭제된 지점은 복구할 수 없습니다.<br>모든 도면 데이터가 함께 삭제됩니다.</div>
+    </div>
+    <div class="mbtns">
+      <button class="mcancel" onclick="closeDeleteStoreModal()">취소</button>
+      <button class="mok" onclick="deleteCurrentStore()" style="background:#dc2626;">삭제</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // 설비 유형 변경 시 화살표 방향 표시/숨김
 document.getElementById('mT')?.addEventListener('change', function(){
@@ -4099,14 +4173,149 @@ const storeNames = { gs:'강서점', bd:'분당점', gn:'강남점', sp:'송파�
   storeZonesSnapshot[s] = storeMap[s].zones().map(function(z){ return Object.assign({}, z); });
 });
 
+// ═══════════════════════════════════════════════════════
+//  엑셀 도면 업로드 기능
+// ═══════════════════════════════════════════════════════
+let uploadedExcelData = null;
+let selectedSheetName = null;
+
+function handleExcelUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      uploadedExcelData = workbook;
+      
+      // 파일명 표시
+      document.getElementById('excelFileName').style.display = '';
+      document.getElementById('excelFileName').textContent = '✅ ' + file.name;
+      
+      // 시트 선택 드롭다운 표시
+      const sheetSelect = document.getElementById('sheetSelector');
+      sheetSelect.innerHTML = '';
+      workbook.SheetNames.forEach(function(name, idx) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (idx === 0) opt.selected = true;
+        sheetSelect.appendChild(opt);
+      });
+      document.getElementById('excelSheetSelect').style.display = '';
+      selectedSheetName = workbook.SheetNames[0];
+      
+      sheetSelect.onchange = function() {
+        selectedSheetName = this.value;
+      };
+      
+      showToast('📊 엑셀 파일 로드 완료! 시트: ' + workbook.SheetNames.length + '개');
+    } catch (err) {
+      showToast('❌ 엑셀 파일 읽기 실패: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseExcelToZones(workbook, sheetName) {
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) return [];
+  
+  const zones = [];
+  const merges = sheet['!merges'] || [];
+  
+  // 셀 크기 설정 (기본값)
+  const CELL_WIDTH = 98;  // px per column
+  const CELL_HEIGHT = 62; // px per row
+  const GAP = 4;
+  
+  let zoneId = 1;
+  
+  merges.forEach(function(merge) {
+    const startCol = merge.s.c;
+    const startRow = merge.s.r;
+    const endCol = merge.e.c;
+    const endRow = merge.e.r;
+    
+    // 셀 주소 생성 (예: A1)
+    const cellAddr = XLSX.utils.encode_cell({ r: startRow, c: startCol });
+    const cellValue = sheet[cellAddr] ? sheet[cellAddr].v : null;
+    
+    // 빈 셀은 스킵 (너무 작은 병합도 스킵)
+    const cols = endCol - startCol + 1;
+    const rows = endRow - startRow + 1;
+    if (!cellValue && (cols < 2 || rows < 2)) return;
+    
+    // 텍스트 정리
+    let text = cellValue ? String(cellValue).trim() : '';
+    let name = text.split('\n')[0].trim() || '구역' + zoneId;
+    let prod = text.split('\n').slice(0, 2).join(' ').trim() || name;
+    
+    // 이름이 너무 길면 자르기
+    if (name.length > 15) name = name.substring(0, 15);
+    
+    // 구역 색상 결정 (내용 기반)
+    let color = 'flat';
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('냉동') || lowerText.includes('아이스')) color = 'freeze';
+    else if (lowerText.includes('냉장') || lowerText.includes('유제품')) color = 'cold';
+    else if (lowerText.includes('입구') || lowerText.includes('출구')) color = 'ent';
+    else if (lowerText.includes('시식') || lowerText.includes('행사')) color = 'promo';
+    
+    // 설비 유형 결정
+    let type = '평대';
+    if (lowerText.includes('냉장')) type = '오픈냉장';
+    else if (lowerText.includes('냉동')) type = '냉동';
+    else if (lowerText.includes('아일랜드')) type = '아일랜드';
+    
+    zones.push({
+      id: sheetName.substring(0, 2) + '_' + zoneId,
+      name: name,
+      prod: prod,
+      type: type,
+      color: color,
+      col: startCol,
+      row: startRow,
+      cols: cols,
+      rows: rows,
+      pri: '',
+      note: ''
+    });
+    
+    zoneId++;
+  });
+  
+  // 위치 정규화 (최소 col/row를 0으로)
+  if (zones.length > 0) {
+    const minCol = Math.min(...zones.map(z => z.col));
+    const minRow = Math.min(...zones.map(z => z.row));
+    zones.forEach(function(z) {
+      z.col -= minCol;
+      z.row -= minRow;
+    });
+  }
+  
+  return zones;
+}
+
 // 지점 추가 모달
 function openAddStoreModal() {
   document.getElementById('addStoreModal').classList.add('open');
   document.getElementById('newStoreCode').value = '';
   document.getElementById('newStoreName').value = '';
+  document.getElementById('excelFileName').style.display = 'none';
+  document.getElementById('excelSheetSelect').style.display = 'none';
+  uploadedExcelData = null;
+  selectedSheetName = null;
 }
 function closeAddStoreModal() {
   document.getElementById('addStoreModal').classList.remove('open');
+  uploadedExcelData = null;
+  selectedSheetName = null;
 }
 
 function addNewStore() {
@@ -4130,16 +4339,26 @@ function addNewStore() {
     return;
   }
   
+  // 엑셀에서 구역 파싱
+  let newZones = [];
+  if (uploadedExcelData && selectedSheetName) {
+    newZones = parseExcelToZones(uploadedExcelData, selectedSheetName);
+    // ID에 지점 코드 추가
+    newZones.forEach(function(z, idx) {
+      z.id = code + '_' + (idx + 1);
+    });
+  }
+  
   // 새 지점 추가
   storeMap[code] = {
-    zones: () => [],
+    zones: () => newZones,
     overrides: () => ({}),
     variable: () => [],
     name: name
   };
   storeNames[code] = name;
   storeUserOverrides[code] = {};
-  storeZonesSnapshot[code] = [];
+  storeZonesSnapshot[code] = newZones.map(z => Object.assign({}, z));
   
   // 드롭다운에 옵션 추가
   const select = document.getElementById('storeSelect');
@@ -4151,17 +4370,88 @@ function addNewStore() {
   // 저장 드롭다운에도 추가
   updateSaveDropdown();
   
-  // Firebase에 새 지점 저장
-  if(typeof window._firebaseSaveStore === 'function'){
+  // Firebase에 새 지점 저장 (구역 포함)
+  if(typeof window._firebaseSaveStoreWithZones === 'function'){
+    window._firebaseSaveStoreWithZones(code, name, newZones);
+  } else if(typeof window._firebaseSaveStore === 'function'){
     window._firebaseSaveStore(code, name);
   }
   
   closeAddStoreModal();
-  showToast('✅ ' + name + ' 추가됨 (서버 동기화 완료)');
+  
+  if (newZones.length > 0) {
+    showToast('✅ ' + name + ' 추가됨! (' + newZones.length + '개 구역 생성)');
+  } else {
+    showToast('✅ ' + name + ' 추가됨 (빈 도면)');
+  }
   
   // 새 지점으로 전환
   select.value = code;
   switchStore(code);
+}
+
+// 기본 지점 목록 (삭제 불가)
+const defaultStores = ['gs', 'bd', 'gn', 'sp'];
+
+// 지점 삭제 확인 모달 열기
+function confirmDeleteStore() {
+  if (!isAdmin) {
+    showToast('⚠️ 관리자만 지점을 삭제할 수 있습니다');
+    return;
+  }
+  
+  if (defaultStores.includes(currentStore)) {
+    showToast('⚠️ 기본 지점(강서/분당/강남/송파)은 삭제할 수 없습니다');
+    return;
+  }
+  
+  const storeName = storeNames[currentStore] || currentStore;
+  document.getElementById('deleteStoreName').textContent = storeName;
+  document.getElementById('deleteStoreModal').classList.add('open');
+}
+
+function closeDeleteStoreModal() {
+  document.getElementById('deleteStoreModal').classList.remove('open');
+}
+
+function deleteCurrentStore() {
+  const code = currentStore;
+  const name = storeNames[code] || code;
+  
+  // 기본 지점 체크
+  if (defaultStores.includes(code)) {
+    showToast('⚠️ 기본 지점은 삭제할 수 없습니다');
+    closeDeleteStoreModal();
+    return;
+  }
+  
+  // Firebase에서 삭제
+  if (typeof window._firebaseDeleteStore === 'function') {
+    window._firebaseDeleteStore(code);
+  }
+  
+  // 로컬 데이터 삭제
+  delete storeMap[code];
+  delete storeNames[code];
+  delete storeUserOverrides[code];
+  delete storeZonesSnapshot[code];
+  
+  // 드롭다운에서 옵션 제거
+  const select = document.getElementById('storeSelect');
+  const option = select.querySelector('option[value="' + code + '"]');
+  if (option) option.remove();
+  
+  // 저장 드롭다운 업데이트
+  updateSaveDropdown();
+  
+  // 모달 닫기
+  closeDeleteStoreModal();
+  
+  // 첫번째 지점으로 전환
+  select.value = 'gs';
+  switchStore('gs');
+  
+  showToast('🗑️ ' + name + ' 삭제됨');
 }
 
 function updateSaveDropdown() {
