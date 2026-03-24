@@ -580,7 +580,7 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
     el.innerHTML = `<span class="sync-dot${state==='syncing'?' pulse':''}"></span>${msg}`;
   }
 
-  // ── Firebase → 로컬 실시간 수신 ──
+  // Firebase 연결 상태 전역 노출
   const _initialLoadDone = {}; // 첫 로딩 무시용 플래그
   
   function listenStore(store) {
