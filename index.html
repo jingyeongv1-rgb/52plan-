@@ -806,9 +806,11 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
           option.textContent = info.name;
           select.appendChild(option);
         }
-        if (typeof window.updateSaveDropdown === 'function') {
-          window.updateSaveDropdown();
-        }
+        // debounce: 모든 지점 등록 완료 후 한 번만 렌더링
+        clearTimeout(window._saveDropTimer);
+        window._saveDropTimer = setTimeout(function() {
+          if (typeof window.updateSaveDropdown === 'function') window.updateSaveDropdown();
+        }, 300);
       };
       setTimeout(addDropdown, 200);
 
@@ -4283,10 +4285,9 @@ function downloadJSON(data, fname) {
 function toggleSaveDrop(e) {
   e.stopPropagation();
   var m = document.getElementById('saveDropMenu');
-  var isOpening = m.style.display === 'none' || m.style.display === '';
-  if (isOpening) {
+  if (m.style.display === 'none' || m.style.display === '') {
     m.style.display = '';
-    updateSaveDropdown(); // 열 때마다 최신 지점 목록 렌더링
+    updateSaveDropdown(); // 열 때마다 최신 지점 목록 반영
   } else {
     m.style.display = 'none';
   }
@@ -5062,10 +5063,14 @@ function deleteCurrentStore() {
 function updateSaveDropdown() {
   var container = document.getElementById('individualSaveContainer');
   if (!container) return;
-  // 기존 버튼만 제거 (라벨 div는 건드리지 않음)
+  // 기존 버튼만 제거 (라벨 div 보존)
   Array.from(container.querySelectorAll('button')).forEach(function(b) { b.remove(); });
-  // storeMap 전체 지점 버튼 생성 (var로 클로저 캡처)
-  Object.keys(storeMap).forEach(function(code) {
+  // storeSelect 옵션 기준으로 버튼 생성 (Firebase 포함 전체 지점 반영)
+  var select = document.getElementById('storeSelect');
+  var codes = select
+    ? Array.from(select.options).map(function(o) { return o.value; })
+    : Object.keys(storeMap);
+  codes.forEach(function(code) {
     var c = code;
     var btn = document.createElement('button');
     btn.style.cssText = 'width:100%;text-align:left;padding:7px 14px;border:none;background:none;font-family:inherit;font-size:12px;cursor:pointer;color:#374151;';
