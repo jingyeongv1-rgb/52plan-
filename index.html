@@ -16,6 +16,7 @@
 
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
 <style>
 :root{
   --bg:#f0ede6;--surface:#fff;--border:#d8d0c0;
@@ -551,7 +552,7 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getDatabase, ref, onValue, set, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+  import { getDatabase, ref, onValue, set, get, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
   // ══════════════════════════════════════════════════
   // ▼▼▼  여기에 Firebase 설정을 붙여넣으세요  ▼▼▼
@@ -743,15 +744,47 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
     }
   };
 
-  // ── 저장된 지점 목록 불러오기 ──
+  // ── 기본 지점들도 _stores에 등록 (지점명 동기화 가능하도록) ──
+  // 이미 등록돼 있으면 Firebase가 무시함
+  const defaultStores = { gs:'강서점', bd:'분당점', gn:'강남점', sp:'송파점', pc:'평촌점', rdw:'구의점' };
+  get(ref(db, 'plan2026/_stores')).then(snap => {
+    const existing = snap.val() || {};
+    Object.entries(defaultStores).forEach(([code, name]) => {
+      if (!existing[code]) {
+        set(ref(db, 'plan2026/_stores/' + code), { code, name });
+      }
+    });
+  }).catch(() => {});
+
+  // ── 저장된 지점 목록 불러오기 + 지점명 실시간 동기화 ──
   const storesRef = ref(db, 'plan2026/_stores');
   onValue(storesRef, snap => {
     const data = snap.val();
     if (!data) return;
     Object.keys(data).forEach(code => {
-      // window.storeMap 기준으로 확인 (일반 스크립트와 공유)
-      if (window.storeMap && window.storeMap[code]) return;
       const info = data[code];
+      if (!info) return;
+
+      // ── 이미 있는 지점: 지점명 변경만 반영 ──
+      if (window.storeMap && window.storeMap[code]) {
+        const newName = info.name;
+        if (newName && window.storeNames[code] !== newName) {
+          // 메모리 업데이트
+          window.storeNames[code] = newName;
+          if (window.storeMap[code]) window.storeMap[code].name = newName;
+          // 드롭다운 옵션 텍스트 업데이트
+          const select = document.getElementById('storeSelect');
+          if (select) {
+            const opt = select.querySelector('option[value="' + code + '"]');
+            if (opt) opt.textContent = newName;
+          }
+          // 저장 드롭다운도 갱신
+          if (typeof window.updateSaveDropdown === 'function') window.updateSaveDropdown();
+          // 현재 보고 있는 지점이면 헤더 타이틀도 갱신
+          if (window.currentStore === code && typeof renderNav === 'function') renderNav();
+        }
+        return;
+      }
 
       // 새 지점의 zones/overrides (클로저로 유지)
       let newZones = [];
@@ -4731,8 +4764,8 @@ async function doRenameStore() {
 
 // ── 엑셀 내보내기 ──
 function exportCurrentStoreExcel() {
-  if (typeof XLSX === 'undefined') {
-    showToast('❌ 엑셀 라이브러리 로딩 중... 잠시 후 다시 시도하세요');
+  if (typeof ExcelJS === 'undefined') {
+    showToast('❌ ExcelJS 로딩 중... 잠시 후 다시 시도하세요');
     return;
   }
   const storeName = storeNames[currentStore] || currentStore;
@@ -4742,120 +4775,125 @@ function exportCurrentStoreExcel() {
   const wkLabel = wk ? wk.id : '';
   const currentOverrides = userOverrides[wkLabel] || {};
 
-  // ── 색상 코드 → 엑셀 배경색 매핑 ──
-  const colorHex = {
-    cbr3: 'FFF9C4', cb1: 'BBDEFB', cn4: 'C8E6C9', cn6: 'B3E5FC',
-    cgr1: 'DCEDC8', cgr2: 'F5F5DC', cgr3: 'E8F5E9', cg1: 'E0F2F1',
-    cw: 'FAFAFA', cc: 'E3F2FD', cpillar: '424242',
+  showToast('📊 도면 엑셀 생성 중...');
+
+  // ── 색상 코드 → ARGB 매핑 ──
+  const colorMap = {
+    cbr3: 'FFFFF9C4', cb1: 'FFBBDEFB', cn4: 'FFC8E6C9', cn6: 'FFB3E5FC',
+    cgr1: 'FFF1F8E9', cgr2: 'FFFFF8E1', cgr3: 'FFE8F5E9', cg1: 'FFE0F2F1',
+    cw:   'FFFAFAFA', cc:   'FFE8EAF6', cpillar: 'FF424242',
   };
-  function getHex(colorKey) {
-    if (!colorKey) return 'FFFFFF';
-    if (colorKey.startsWith('custom_')) return colorKey.replace('custom_', '').replace('#','');
-    if (colorKey.startsWith('ent')) return 'A5D6A7';
-    return colorHex[colorKey] || 'F5F5F5';
+  function getARGB(colorKey) {
+    if (!colorKey) return 'FFF8F9FA';
+    if (colorKey.startsWith('custom_')) {
+      const hex = colorKey.replace('custom_#','').replace('custom_','');
+      return 'FF' + (hex.length === 6 ? hex.toUpperCase() : 'F5F5F5');
+    }
+    if (colorKey.startsWith('ent')) return 'FFA5D6A7';
+    return colorMap[colorKey] || 'FFF5F5F5';
   }
 
-  // ── grid 범위 계산 ──
-  const scale = 2; // 1 grid unit = 2 엑셀 셀
+  const scale = 2;
   let minC = Infinity, minR = Infinity, maxC = -Infinity, maxR = -Infinity;
   zones.forEach(z => {
-    const c = Math.round(z.col * scale);
-    const r = Math.round(z.row * scale);
+    const c = Math.round(z.col * scale), r = Math.round(z.row * scale);
     const c2 = Math.round((z.col + (z.cols||1)) * scale);
     const r2 = Math.round((z.row + (z.rows||1)) * scale);
     if (c < minC) minC = c; if (r < minR) minR = r;
     if (c2 > maxC) maxC = c2; if (r2 > maxR) maxR = r2;
   });
 
-  const COLS = maxC - minC + 2;
-  const ROWS = maxR - minR + 2;
+  const COLS = maxC - minC + 1;
+  const ROWS = maxR - minR + 1;
 
-  // ── 빈 시트 데이터 생성 ──
-  const ws = {};
-  const merges = [];
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('도면', { views: [{ showGridLines: false }] });
 
+  // 열/행 크기 설정
+  for (let c = 1; c <= COLS + 1; c++) ws.getColumn(c).width = 4.2;
+  for (let r = 1; r <= ROWS + 1; r++) ws.getRow(r).height = 16;
+
+  // 빈 배경 초기화
+  for (let r = 0; r <= ROWS; r++) {
+    for (let c = 0; c <= COLS; c++) {
+      const cell = ws.getCell(r + 1, c + 1);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } };
+      cell.border = {
+        top:    { style: 'hair', color: { argb: 'FFD0D0D0' } },
+        bottom: { style: 'hair', color: { argb: 'FFD0D0D0' } },
+        left:   { style: 'hair', color: { argb: 'FFD0D0D0' } },
+        right:  { style: 'hair', color: { argb: 'FFD0D0D0' } },
+      };
+    }
+  }
+
+  // 구역 렌더링
   zones.forEach(z => {
     const ov = currentOverrides[z.id] || {};
-    const label = ov.prod || z.prod || z.name || '';
+    const label = (ov.prod || z.prod || '').trim();
     const c0 = Math.round(z.col * scale) - minC;
     const r0 = Math.round(z.row * scale) - minR;
     const cSpan = Math.max(1, Math.round((z.cols||1) * scale));
     const rSpan = Math.max(1, Math.round((z.rows||1) * scale));
+    const argb = getARGB(z.color);
+    const isDark = z.color === 'cpillar';
+    const fontColor = isDark ? 'FFFFFFFF' : 'FF212121';
+    const borderColor = isDark ? 'FFFFFFFF' : 'FF757575';
 
-    const bgHex = getHex(z.color);
-    const isDark = bgHex === '424242'; // 기둥
-
-    // 모든 셀에 배경색 지정
+    // 모든 내부 셀 채색
     for (let dr = 0; dr < rSpan; dr++) {
       for (let dc = 0; dc < cSpan; dc++) {
-        const addr = XLSX.utils.encode_cell({ r: r0 + dr, c: c0 + dc });
-        ws[addr] = {
-          v: '',
-          s: {
-            fill: { patternType: 'solid', fgColor: { rgb: bgHex } },
-            border: {
-              top: { style: 'thin', color: { rgb: 'BDBDBD' } },
-              bottom: { style: 'thin', color: { rgb: 'BDBDBD' } },
-              left: { style: 'thin', color: { rgb: 'BDBDBD' } },
-              right: { style: 'thin', color: { rgb: 'BDBDBD' } },
-            },
-            font: { sz: 7, bold: false, color: { rgb: isDark ? 'FFFFFF' : '212121' } },
-            alignment: { wrapText: true, horizontal: 'center', vertical: 'center' }
-          }
+        const cell = ws.getCell(r0 + dr + 1, c0 + dc + 1);
+        const isTop = dr === 0, isBottom = dr === rSpan - 1;
+        const isLeft = dc === 0, isRight = dc === cSpan - 1;
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+        cell.border = {
+          top:    { style: isTop    ? 'medium' : 'hair', color: { argb: isTop    ? borderColor : 'FFCCCCCC' } },
+          bottom: { style: isBottom ? 'medium' : 'hair', color: { argb: isBottom ? borderColor : 'FFCCCCCC' } },
+          left:   { style: isLeft   ? 'medium' : 'hair', color: { argb: isLeft   ? borderColor : 'FFCCCCCC' } },
+          right:  { style: isRight  ? 'medium' : 'hair', color: { argb: isRight  ? borderColor : 'FFCCCCCC' } },
         };
       }
     }
 
-    // 대표 셀에만 텍스트
-    const topAddr = XLSX.utils.encode_cell({ r: r0, c: c0 });
-    ws[topAddr] = {
-      v: label,
-      s: {
-        fill: { patternType: 'solid', fgColor: { rgb: bgHex } },
-        border: {
-          top: { style: 'thin', color: { rgb: 'BDBDBD' } },
-          bottom: { style: 'thin', color: { rgb: 'BDBDBD' } },
-          left: { style: 'thin', color: { rgb: 'BDBDBD' } },
-          right: { style: 'thin', color: { rgb: 'BDBDBD' } },
-        },
-        font: { sz: 7, bold: true, color: { rgb: isDark ? 'FFFFFF' : '212121' } },
-        alignment: { wrapText: true, horizontal: 'center', vertical: 'center' }
-      }
-    };
+    // 텍스트 (좌상단 셀)
+    const topCell = ws.getCell(r0 + 1, c0 + 1);
+    topCell.value = label;
+    topCell.font = { size: 7, bold: true, color: { argb: fontColor } };
+    topCell.alignment = { wrapText: true, horizontal: 'center', vertical: 'middle' };
 
     // 병합
     if (cSpan > 1 || rSpan > 1) {
-      merges.push({
-        s: { r: r0, c: c0 },
-        e: { r: r0 + rSpan - 1, c: c0 + cSpan - 1 }
-      });
+      ws.mergeCells(r0 + 1, c0 + 1, r0 + rSpan, c0 + cSpan);
     }
   });
 
-  ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: ROWS, c: COLS } });
-  ws['!merges'] = merges;
-  // 셀 크기 균일하게
-  ws['!cols'] = Array(COLS + 1).fill({ wpx: 28 });
-  ws['!rows'] = Array(ROWS + 1).fill({ hpx: 20 });
-
-  // ── 주차별 배치 시트 ──
-  const wkRows = [['주차', '구역ID', '구역명', '배치상품', '상태', '비고']];
+  // 주차별 배치 시트
+  const ws2 = wb.addWorksheet('주차별배치');
+  ws2.addRow(['주차', '구역ID', '구역명', '배치상품', '상태', '비고']);
   Object.keys(userOverrides).sort().forEach(wkId => {
     const wkOv = userOverrides[wkId];
     Object.keys(wkOv).forEach(zoneId => {
       const ov = wkOv[zoneId];
       const z = zones.find(z => z.id === zoneId) || {};
-      wkRows.push([wkId, zoneId, z.name || zoneId, ov.prod || '', ov.status || '', ov.note || '']);
+      ws2.addRow([wkId, zoneId, z.name || zoneId, ov.prod || '', ov.status || '', ov.note || '']);
     });
   });
-  const ws2 = XLSX.utils.aoa_to_sheet(wkRows);
-  ws2['!cols'] = [8,16,16,20,10,20].map(w => ({wch: w}));
+  ws2.columns = [8,16,16,20,10,20].map((w,i) => ({ width: w, key: String(i) }));
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '도면');
-  XLSX.utils.book_append_sheet(wb, ws2, '주차별배치');
-  XLSX.writeFile(wb, '킴스클럽_' + storeName + '_도면_' + ymd + '.xlsx');
-  showToast('✅ ' + storeName + ' 도면 엑셀 저장 완료!');
+  // 다운로드
+  wb.xlsx.writeBuffer().then(buffer => {
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '킴스클럽_' + storeName + '_도면_' + ymd + '.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    showToast('✅ ' + storeName + ' 도면 엑셀 저장 완료!');
+  }).catch(e => {
+    showToast('❌ 엑셀 생성 오류: ' + e.message);
+    console.error(e);
+  });
 }
 
 function openAddStoreModal() {
