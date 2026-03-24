@@ -749,16 +749,30 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
     }
   };
 
-  // ── 기본 지점들도 _stores에 등록 (지점명 동기화 가능하도록) ──
-  // 이미 등록돼 있으면 Firebase가 무시함
+  // ── 기본 지점들 _stores 등록: Firebase에 저장된 이름 우선, 없으면 기본값 ──
   const defaultStores = { gs:'강서점', bd:'분당점', gn:'강남점', sp:'송파점', pc:'평촌점', rdw:'구의점' };
   get(ref(db, 'plan2026/_stores')).then(snap => {
     const existing = snap.val() || {};
-    Object.entries(defaultStores).forEach(([code, name]) => {
+    Object.entries(defaultStores).forEach(([code, defaultName]) => {
       if (!existing[code]) {
-        set(ref(db, 'plan2026/_stores/' + code), { code, name });
+        // _stores에 없으면 기본값으로 등록
+        set(ref(db, 'plan2026/_stores/' + code), { code, name: defaultName });
+      } else {
+        // _stores에 있으면 → Firebase 저장된 이름으로 로컬 업데이트
+        const savedName = existing[code].name;
+        if (savedName) {
+          if (window.storeNames) window.storeNames[code] = savedName;
+          if (window.storeMap && window.storeMap[code]) window.storeMap[code].name = savedName;
+          storeNames[code] = savedName;
+          if (storeMap[code]) storeMap[code].name = savedName;
+          // 드롭다운도 즉시 반영
+          const opt = document.querySelector('#storeSelect option[value="' + code + '"]');
+          if (opt) opt.textContent = savedName;
+        }
       }
     });
+    // 저장 드롭다운 갱신
+    if (typeof window.updateSaveDropdown === 'function') window.updateSaveDropdown();
   }).catch(() => {});
 
   // ── 저장된 지점 목록 불러오기 + 지점명 실시간 동기화 ──
