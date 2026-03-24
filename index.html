@@ -737,9 +737,14 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
   // ── 지점명 Firebase 업데이트 ──
   window._updateStoreName = async function(code, newName) {
     try {
-      await set(ref(db, 'plan2026/_stores/' + code + '/name'), newName);
+      // name 필드만 업데이트 (다른 데이터 보존)
+      await set(ref(db, 'plan2026/_stores/' + code), { code: code, name: newName });
+      // storeNames window 객체도 즉시 업데이트
+      if (window.storeNames) window.storeNames[code] = newName;
+      if (window.storeMap && window.storeMap[code]) window.storeMap[code].name = newName;
       syncUI('saved', '✅ 지점명 저장됨');
     } catch(e) {
+      syncUI('error', '❌ 저장 실패');
       console.error('Store name update error:', e);
     }
   };
@@ -4733,14 +4738,15 @@ function closeRenameStoreModal() {
 async function doRenameStore() {
   const newName = document.getElementById('renameStoreInput').value.trim();
   if (!newName) { showToast('❌ 지점명을 입력하세요'); return; }
-  const code = currentStore;
-  const oldName = storeNames[code];
+  const code = window.currentStore || currentStore;
 
-  // 메모리 업데이트
+  // 메모리 업데이트 (window 기준으로)
+  if (window.storeNames) window.storeNames[code] = newName;
   storeNames[code] = newName;
+  if (window.storeMap && window.storeMap[code]) window.storeMap[code].name = newName;
   if (storeMap[code]) storeMap[code].name = newName;
 
-  // 드롭다운 옵션 업데이트
+  // 드롭다운 옵션 즉시 업데이트
   const select = document.getElementById('storeSelect');
   if (select) {
     const opt = select.querySelector('option[value="' + code + '"]');
@@ -4748,14 +4754,17 @@ async function doRenameStore() {
   }
   updateSaveDropdown();
 
-  // Firebase 업데이트
+  // Firebase _stores 경로 업데이트 → 다른 사용자에게도 실시간 반영
   if (typeof window._updateStoreName === 'function') {
-    window._updateStoreName(code, newName);
-  }
-
-  // Firebase 저장 (현재 지점 전체 재저장)
-  if (typeof window._firebaseSave === 'function') {
-    window._firebaseSave(code);
+    await window._updateStoreName(code, newName);
+  } else {
+    // _updateStoreName 아직 로딩 안 됐을 경우 직접 처리
+    console.warn('_updateStoreName not ready, retrying...');
+    setTimeout(() => {
+      if (typeof window._updateStoreName === 'function') {
+        window._updateStoreName(code, newName);
+      }
+    }, 1000);
   }
 
   closeRenameStoreModal();
