@@ -4283,7 +4283,13 @@ function downloadJSON(data, fname) {
 function toggleSaveDrop(e) {
   e.stopPropagation();
   var m = document.getElementById('saveDropMenu');
-  m.style.display = m.style.display === 'none' ? '' : 'none';
+  var isOpening = m.style.display === 'none' || m.style.display === '';
+  if (isOpening) {
+    m.style.display = '';
+    updateSaveDropdown(); // 열 때마다 최신 지점 목록 렌더링
+  } else {
+    m.style.display = 'none';
+  }
 }
 function closeSaveDrop() {
   var m = document.getElementById('saveDropMenu');
@@ -5054,22 +5060,19 @@ function deleteCurrentStore() {
 }
 
 function updateSaveDropdown() {
-  const container = document.getElementById('individualSaveContainer');
+  var container = document.getElementById('individualSaveContainer');
   if (!container) return;
-  
-  // 기존 버튼들 제거 (첫번째 라벨 제외)
-  const label = container.querySelector('div');
-  container.innerHTML = '';
-  container.appendChild(label);
-  
-  // 모든 지점 버튼 추가
-  Object.keys(storeMap).forEach(code => {
-    const btn = document.createElement('button');
+  // 기존 버튼만 제거 (라벨 div는 건드리지 않음)
+  Array.from(container.querySelectorAll('button')).forEach(function(b) { b.remove(); });
+  // storeMap 전체 지점 버튼 생성 (var로 클로저 캡처)
+  Object.keys(storeMap).forEach(function(code) {
+    var c = code;
+    var btn = document.createElement('button');
     btn.style.cssText = 'width:100%;text-align:left;padding:7px 14px;border:none;background:none;font-family:inherit;font-size:12px;cursor:pointer;color:#374151;';
-    btn.textContent = storeNames[code] || code;
+    btn.textContent = storeNames[c] || c;
     btn.onmouseover = function() { this.style.background = '#f9fafb'; };
-    btn.onmouseout = function() { this.style.background = 'none'; };
-    btn.onclick = function() { saveStore(code); closeSaveDrop(); };
+    btn.onmouseout  = function() { this.style.background = 'none'; };
+    btn.onclick     = function() { saveStore(c); closeSaveDrop(); };
     container.appendChild(btn);
   });
 }
