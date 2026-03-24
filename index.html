@@ -4237,16 +4237,19 @@ function syncToFirebase(){
 
 function saveAll(){
   if(typeof window._firebaseSave === 'function') window._firebaseSave(currentStore);
-  storeUserOverrides[currentStore] = JSON.parse(JSON.stringify(userOverrides));
-  storeZonesSnapshot[currentStore] = zones.map(z => Object.assign({}, z));
+  // 현재 지점 최신 상태 스냅샷
+  var allOvrs  = window.storeUserOverrides || storeUserOverrides;
+  var allSnaps = window.storeZonesSnapshot || storeZonesSnapshot;
+  allOvrs[currentStore]  = JSON.parse(JSON.stringify(userOverrides));
+  allSnaps[currentStore] = zones.map(z => Object.assign({}, z));
 
+  var allMap = window.storeMap || storeMap;
   var allData = { savedAt: new Date().toISOString(), stores: {} };
-  // 모든 지점 저장 (동적으로 추가된 지점 포함)
-  Object.keys(storeMap).forEach(function(store){ allData.stores[store] = buildStoreData(store); });
+  Object.keys(allMap).forEach(function(store){ allData.stores[store] = buildStoreData(store); });
 
   var now = new Date();
   var ymd = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
-  var storeCount = Object.keys(storeMap).length;
+  var storeCount = Object.keys(allMap).length;
   downloadJSON(allData, '킴스클럽_2026도면_전점포_' + ymd + '.json');
   showToast('✅ ' + storeCount + '개 점포 JSON 저장 완료!');
 }
@@ -4257,29 +4260,57 @@ function saveStore(store) {
     storeUserOverrides[currentStore] = JSON.parse(JSON.stringify(userOverrides));
     storeZonesSnapshot[currentStore] = zones.map(z => Object.assign({}, z));
   }
+  // Firebase 지점은 window.storeMap/storeNames/storeZonesSnapshot 에 있음
+  var allMap   = window.storeMap   || storeMap;
+  var allNames = window.storeNames || storeNames;
+  var allSnaps = window.storeZonesSnapshot || storeZonesSnapshot;
+  var allOvrs  = window.storeUserOverrides || storeUserOverrides;
+
+  if (!allMap[store]) {
+    showToast('⚠️ 지점 데이터를 찾을 수 없습니다: ' + store);
+    return;
+  }
   var now = new Date();
   var ymd = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
+  var storeName = allNames[store] || store;
   var data = { savedAt: new Date().toISOString(), stores: {} };
   data.stores[store] = buildStoreData(store);
-  downloadJSON(data, '킴스클럽_2026도면_' + storeNames[store] + '_' + ymd + '.json');
-  showToast('✅ ' + storeNames[store] + ' JSON 저장 완료!');
+  downloadJSON(data, '킴스클럽_2026도면_' + storeName + '_' + ymd + '.json');
+  showToast('✅ ' + storeName + ' JSON 저장 완료!');
 }
 
 function buildStoreData(store) {
-  var snap = storeZonesSnapshot[store];
+  var allMap   = window.storeMap   || storeMap;
+  var allNames = window.storeNames || storeNames;
+  var allSnaps = window.storeZonesSnapshot || storeZonesSnapshot;
+  var allOvrs  = window.storeUserOverrides || storeUserOverrides;
+
+  var storeEntry = allMap[store];
+  if (!storeEntry) return { name: store, zones: [], userOverrides: {}, seasonOverrides: {} };
+
+  // zones: storeZonesSnapshot 우선, 없으면 storeMap.zones()
+  var snap = allSnaps[store];
   var sZones = (snap && snap.length > 0)
     ? snap.map(function(z){ return Object.assign({}, z); })
-    : storeMap[store].zones().map(function(z){ return Object.assign({}, z); });
-  var baseOv = JSON.parse(JSON.stringify(storeMap[store].overrides()));
-  var sesOv  = storeUserOverrides[store] || {};
+    : storeEntry.zones().map(function(z){ return Object.assign({}, z); });
+
+  // overrides 병합
+  var baseOv = {};
+  try { baseOv = JSON.parse(JSON.stringify(storeEntry.overrides())); } catch(e) {}
+  var sesOv  = allOvrs[store] || {};
   var merged = {}, allWks = {};
   Object.keys(baseOv).forEach(function(k){ allWks[k]=1; });
   Object.keys(sesOv).forEach(function(k){ allWks[k]=1; });
   Object.keys(allWks).forEach(function(wkId){
     merged[wkId] = Object.assign({}, baseOv[wkId]||{}, sesOv[wkId]||{});
   });
-  return { name: storeNames[store], zones: sZones, userOverrides: merged,
-           seasonOverrides: (store===currentStore) ? JSON.parse(JSON.stringify(seasonOverrides)) : {} };
+
+  return {
+    name: allNames[store] || store,
+    zones: sZones,
+    userOverrides: merged,
+    seasonOverrides: (store === currentStore) ? JSON.parse(JSON.stringify(seasonOverrides)) : {}
+  };
 }
 
 function downloadJSON(data, fname) {
@@ -4293,7 +4324,11 @@ function downloadJSON(data, fname) {
 function toggleSaveDrop(e) {
   e.stopPropagation();
   var m = document.getElementById('saveDropMenu');
-  m.style.display = m.style.display === 'none' ? '' : 'none';
+  if (m.style.display === 'none') {
+    m.style.display = 'block';
+  } else {
+    m.style.display = 'none';
+  }
 }
 function closeSaveDrop() {
   var m = document.getElementById('saveDropMenu');
