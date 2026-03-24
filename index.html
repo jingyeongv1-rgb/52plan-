@@ -588,23 +588,47 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
   window._syncUI = syncUI;
 
   // Firebase 연결 상태 전역 노출
-  const _initialLoadDone = {}; // 첫 로딩 무시용 플래그
-  
+  const _initialLoadDone = {};
+
   function listenStore(store) {
     const r = ref(db, 'plan2026/' + store);
     onValue(r, snap => {
       if (_suppressNext) { _suppressNext = false; return; }
-      
-      // 첫 로딩은 무시 (로컬 하드코딩 데이터 유지)
+
+      const data = snap.val();
+
       if (!_initialLoadDone[store]) {
         _initialLoadDone[store] = true;
-        syncUI('saved', '연결됨');
+
+        if (data) {
+          if (data.userOverrides && typeof storeUserOverrides !== 'undefined') {
+            storeUserOverrides[store] = data.userOverrides;
+          }
+          if (data.zones && Array.isArray(data.zones) && typeof storeZonesSnapshot !== 'undefined') {
+            storeZonesSnapshot[store] = data.zones.map(z => Object.assign({}, z));
+          }
+          if (typeof currentStore !== 'undefined' && store === currentStore) {
+            if (data.userOverrides) {
+              Object.keys(userOverrides).forEach(k => delete userOverrides[k]);
+              Object.assign(userOverrides, data.userOverrides);
+            }
+            if (data.zones && Array.isArray(data.zones)) {
+              zones.length = 0;
+              data.zones.forEach(z => zones.push(z));
+            }
+            if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
+          }
+        }
+
+        syncUI('saved', '✅ 연결됨');
+        // 현재 지점 로드 완료 시 앱 렌더 시작
+        if (store === (window.currentStore || 'gs') && typeof window._renderOnReady === 'function') {
+          window._renderOnReady();
+        }
         return;
       }
-      
-      const data = snap.val();
+
       if (!data) return;
-      // 현재 보고 있는 점포만 바로 적용
       if (typeof currentStore !== 'undefined' && store === currentStore) {
         if (data.userOverrides) {
           Object.keys(userOverrides).forEach(k => delete userOverrides[k]);
@@ -615,15 +639,15 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
           data.zones.forEach(z => zones.push(z));
         }
         render(); renderPanel(); renderNav();
-        syncUI('saved', '동기화됨');
+        syncUI('saved', '✅ 동기화됨');
         showToast('🔄 다른 사용자가 수정했습니다');
       }
-      // 다른 점포는 storeUserOverrides에만 반영
       if (typeof storeUserOverrides !== 'undefined' && store !== currentStore) {
         if (data.userOverrides) storeUserOverrides[store] = data.userOverrides;
+        if (data.zones && Array.isArray(data.zones)) storeZonesSnapshot[store] = data.zones.map(z => Object.assign({}, z));
       }
     }, err => {
-      syncUI('error', '연결 오류');
+      syncUI('error', '❌ 연결 오류');
     });
   }
 
@@ -715,70 +739,79 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
     const data = snap.val();
     if (!data) return;
     Object.keys(data).forEach(code => {
-      if (storeMap[code]) return; // 이미 있으면 스킵
+      // window.storeMap 기준으로 확인 (일반 스크립트와 공유)
+      if (window.storeMap && window.storeMap[code]) return;
       const info = data[code];
-      
-      // 새 지점의 zones 데이터를 저장할 배열
+
+      // 새 지점의 zones/overrides (클로저로 유지)
       let newZones = [];
       let newOverrides = {};
-      
-      storeMap[code] = {
-        zones: () => newZones,
-        overrides: () => newOverrides,
-        variable: () => [],
-        name: info.name
+
+      // window 객체에 직접 등록
+      if (window.storeMap) {
+        window.storeMap[code] = {
+          zones: () => newZones,
+          overrides: () => newOverrides,
+          variable: () => [],
+          name: info.name
+        };
+      }
+      if (window.storeNames) window.storeNames[code] = info.name;
+      if (window.storeUserOverrides) window.storeUserOverrides[code] = {};
+      if (window.storeZonesSnapshot) window.storeZonesSnapshot[code] = [];
+
+      // 드롭다운 옵션 추가 (지연 실행으로 DOM + 일반 스크립트 준비 보장)
+      const addDropdown = () => {
+        const select = document.getElementById('storeSelect');
+        if (select && !select.querySelector('option[value="'+code+'"]')) {
+          const option = document.createElement('option');
+          option.value = code;
+          option.textContent = info.name;
+          select.appendChild(option);
+        }
+        if (typeof window.updateSaveDropdown === 'function') {
+          window.updateSaveDropdown();
+        }
       };
-      storeNames[code] = info.name;
-      storeUserOverrides[code] = {};
-      storeZonesSnapshot[code] = [];
-      
-      // 드롭다운에 옵션 추가
-      const select = document.getElementById('storeSelect');
-      if (select && !select.querySelector('option[value="'+code+'"]')) {
-        const option = document.createElement('option');
-        option.value = code;
-        option.textContent = info.name;
-        select.appendChild(option);
-      }
-      
-      // 저장 드롭다운 메뉴에도 새 지점 추가
-      if (typeof updateSaveDropdown === 'function') {
-        updateSaveDropdown();
-      }
-      
+      setTimeout(addDropdown, 200);
+
       // 새 지점의 실제 데이터 불러오기 + 실시간 감시
       const storeDataRef = ref(db, 'plan2026/' + code);
       onValue(storeDataRef, dataSnap => {
         const storeData = dataSnap.val();
         if (!storeData) return;
-        
+
         // zones 데이터 업데이트
         if (storeData.zones && Array.isArray(storeData.zones)) {
           newZones.length = 0;
           storeData.zones.forEach(z => newZones.push(z));
-          storeZonesSnapshot[code] = storeData.zones.map(z => Object.assign({}, z));
+          if (window.storeZonesSnapshot) {
+            window.storeZonesSnapshot[code] = storeData.zones.map(z => Object.assign({}, z));
+          }
         }
-        
+
         // overrides 데이터 업데이트
         if (storeData.userOverrides) {
           Object.keys(newOverrides).forEach(k => delete newOverrides[k]);
           Object.assign(newOverrides, storeData.userOverrides);
-          storeUserOverrides[code] = storeData.userOverrides;
+          if (window.storeUserOverrides) window.storeUserOverrides[code] = storeData.userOverrides;
         }
-        
+
         // 현재 보고 있는 지점이면 화면 갱신
-        if (typeof currentStore !== 'undefined' && code === currentStore) {
-          zones.length = 0;
-          newZones.forEach(z => zones.push(z));
-          if (storeData.userOverrides) {
-            Object.keys(userOverrides).forEach(k => delete userOverrides[k]);
-            Object.assign(userOverrides, storeData.userOverrides);
+        if (window.currentStore === code) {
+          if (window.zones) {
+            window.zones.length = 0;
+            newZones.forEach(z => window.zones.push(z));
           }
-          render(); renderPanel(); renderNav();
-          showToast('🔄 데이터 동기화됨');
+          if (storeData.userOverrides && window.userOverrides) {
+            Object.keys(window.userOverrides).forEach(k => delete window.userOverrides[k]);
+            Object.assign(window.userOverrides, storeData.userOverrides);
+          }
+          if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
+          if (typeof showToast === 'function') showToast('🔄 데이터 동기화됨');
         }
-        
-        syncUI('saved', '동기화됨');
+
+        syncUI('saved', '✅ 동기화됨');
       });
     });
   });
@@ -815,6 +848,16 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
 <!-- Firebase 동기화 상태 -->
 <div id="syncStatus" style="position:fixed;top:10px;right:14px;z-index:9998;font-family:Pretendard,sans-serif;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;background:#f3f4f6;color:#6b7280"><span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:currentColor"></span><span id="syncMsg">연결 중...</span></div>
 <!-- 잠금 오버레이 -->
+<!-- Firebase 초기 로딩 오버레이 -->
+<div id="fbLoadingOverlay" style="position:fixed;inset:0;background:#1a1712;z-index:9997;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+  <div style="font-family:Pretendard,sans-serif;color:#7dcd7d;font-size:18px;font-weight:800;letter-spacing:1px;">52주 AI 표준화</div>
+  <div style="font-family:Pretendard,sans-serif;color:#aaa;font-size:12px;">서버에서 최신 도면 불러오는 중...</div>
+  <div style="width:200px;height:3px;background:#333;border-radius:3px;overflow:hidden;">
+    <div style="width:40%;height:100%;background:#3a8c3a;border-radius:3px;animation:fbloading 1.2s ease-in-out infinite;"></div>
+  </div>
+  <style>@keyframes fbloading{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}</style>
+</div>
+
 <div id="lockOverlay" style="position:fixed;inset:0;background:rgba(10,10,10,.97);z-index:9999;display:flex;align-items:center;justify-content:center">
   <div style="background:#1a1a1a;border:1px solid #2d2d2d;border-radius:20px;padding:40px 36px;width:360px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.6)">
     
@@ -4343,6 +4386,13 @@ const storeNames = { gs:'강서점', bd:'분당점', gn:'강남점', sp:'송파�
   storeZonesSnapshot[s] = storeMap[s].zones().map(function(z){ return Object.assign({}, z); });
 });
 
+// ── Firebase module 스크립트에서 접근할 수 있도록 window에 노출 ──
+window.storeMap = storeMap;
+window.storeNames = storeNames;
+window.storeUserOverrides = storeUserOverrides;
+window.storeZonesSnapshot = storeZonesSnapshot;
+window.updateSaveDropdown = function() { if (typeof updateSaveDropdown === 'function') updateSaveDropdown(); };
+
 // ═══════════════════════════════════════════════════════
 //  엑셀 도면 업로드 기능
 // ═══════════════════════════════════════════════════════
@@ -4682,9 +4732,25 @@ function switchStore(store) {
 curWkIdx = getTodayWkIdx();
 curMonthIdx = WEEKS[curWkIdx].mo;
 renderNav();
-render();
-renderWkSummary();
-initRpSections();
+// render()는 Firebase 데이터 로드 후 실행 (window._appReady로 제어)
+window._appReady = false;
+window._renderOnReady = function() {
+  if (window._appReady) return;
+  window._appReady = true;
+  // Firebase 로딩 오버레이 제거
+  const overlay = document.getElementById('fbLoadingOverlay');
+  if (overlay) overlay.style.display = 'none';
+  render();
+  renderWkSummary();
+  initRpSections();
+};
+// Firebase 응답이 3초 내에 없으면 하드코딩 데이터로 강제 렌더
+setTimeout(function() {
+  if (!window._appReady) {
+    console.warn('Firebase 응답 없음 - 로컬 데이터로 렌더');
+    window._renderOnReady();
+  }
+}, 3000);
 
 // ══════════════════════════════════════════
 //  도면 / 운영맵 탭 전환
