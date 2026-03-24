@@ -770,22 +770,24 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
       const info = data[code];
       if (!info) return;
 
-      // ── 이미 있는 지점: 지점명 변경만 반영 ──
+      // ── 이미 있는 지점: 지점명 항상 최신으로 반영 ──
       if (window.storeMap && window.storeMap[code]) {
-        const newName = info.name;
-        if (newName && window.storeNames[code] !== newName) {
-          // 메모리 업데이트
-          window.storeNames[code] = newName;
-          if (window.storeMap[code]) window.storeMap[code].name = newName;
+        const remoteName = info.name;
+        if (remoteName) {
+          // 메모리 업데이트 (항상)
+          window.storeNames[code] = remoteName;
+          storeNames[code] = remoteName;
+          if (window.storeMap[code]) window.storeMap[code].name = remoteName;
+          if (storeMap[code]) storeMap[code].name = remoteName;
           // 드롭다운 옵션 텍스트 업데이트
           const select = document.getElementById('storeSelect');
           if (select) {
             const opt = select.querySelector('option[value="' + code + '"]');
-            if (opt) opt.textContent = newName;
+            if (opt && opt.textContent !== remoteName) opt.textContent = remoteName;
           }
-          // 저장 드롭다운도 갱신
+          // 저장 드롭다운 갱신
           if (typeof window.updateSaveDropdown === 'function') window.updateSaveDropdown();
-          // 현재 보고 있는 지점이면 헤더 타이틀도 갱신
+          // 현재 보고 있는 지점이면 헤더도 갱신
           if (window.currentStore === code && typeof renderNav === 'function') renderNav();
         }
         return;
@@ -4744,53 +4746,39 @@ function openRenameStoreModal() {
 function closeRenameStoreModal() {
   document.getElementById('renameStoreModal').classList.remove('open');
 }
-async function doRenameStore() {
+function doRenameStore() {
   const newName = document.getElementById('renameStoreInput').value.trim();
   if (!newName) { showToast('❌ 지점명을 입력하세요'); return; }
 
-  // 모달에 저장된 code 사용 (가장 확실한 방법)
-  const modal = document.getElementById('renameStoreModal');
   const sel = document.getElementById('storeSelect');
-  const code = modal.getAttribute('data-code')
-    || (sel && sel.value)
-    || currentStore
-    || 'gs';
+  const code = (sel && sel.value) || currentStore;
+  if (!code) { showToast('❌ 지점 코드 오류'); return; }
 
-  if (!code) { showToast('❌ 지점 코드를 확인할 수 없습니다'); return; }
+  // ① 모달 즉시 닫기
+  document.getElementById('renameStoreModal').classList.remove('open');
 
-  // 메모리 즉시 업데이트
+  // ② 메모리 업데이트
   storeNames[code] = newName;
-  if (storeMap[code]) storeMap[code].name = newName;
+  if (storeMap && storeMap[code]) storeMap[code].name = newName;
   if (window.storeNames) window.storeNames[code] = newName;
   if (window.storeMap && window.storeMap[code]) window.storeMap[code].name = newName;
 
-  // 드롭다운 즉시 반영
+  // ③ 드롭다운 반영
   if (sel) {
     const opt = sel.querySelector('option[value="' + code + '"]');
     if (opt) opt.textContent = newName;
   }
   updateSaveDropdown();
 
-  // 모달 먼저 닫고 토스트 표시 (Firebase 결과 기다리지 않음)
-  closeRenameStoreModal();
+  // ④ 토스트
   showToast('✅ "' + newName + '"으로 변경됨');
 
-  // Firebase 저장 (백그라운드)
-  if (typeof window._updateStoreName === 'function') {
-    window._updateStoreName(code, newName);
-  } else {
-    // Firebase 모듈 로딩 완료 후 저장
-    let retry = 0;
-    const timer = setInterval(() => {
-      retry++;
-      if (typeof window._updateStoreName === 'function') {
-        window._updateStoreName(code, newName);
-        clearInterval(timer);
-      } else if (retry > 10) {
-        clearInterval(timer);
-      }
-    }, 500);
-  }
+  // ⑤ Firebase 저장 (100ms 후 백그라운드)
+  setTimeout(function() {
+    if (typeof window._updateStoreName === 'function') {
+      window._updateStoreName(code, newName);
+    }
+  }, 100);
 }
 
 // ── 엑셀 내보내기 ──
