@@ -660,9 +660,12 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
     syncUI('syncing', '저장 중...');
     try {
       _suppressNext = true;
+      var allNames = window.storeNames || storeNames;
       const payload = {
+        name: allNames[store] || store,
         zones: (store === currentStore) ? zones : (window._storeZonesSnapshot?.[store] || []),
         userOverrides: (store === currentStore) ? userOverrides : (storeUserOverrides[store] || {}),
+        seasonOverrides: (store === currentStore) ? JSON.parse(JSON.stringify(seasonOverrides)) : {},
         savedAt: Date.now()
       };
       await set(ref(db, 'plan2026/' + store), payload);
@@ -853,6 +856,11 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
           if (storeData.userOverrides && window.userOverrides) {
             Object.keys(window.userOverrides).forEach(k => delete window.userOverrides[k]);
             Object.assign(window.userOverrides, storeData.userOverrides);
+          }
+          // seasonOverrides 복원
+          if (storeData.seasonOverrides && typeof seasonOverrides !== 'undefined') {
+            Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
+            Object.assign(seasonOverrides, storeData.seasonOverrides);
           }
           if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
           if (typeof showToast === 'function') showToast('🔄 데이터 동기화됨');
@@ -4260,21 +4268,28 @@ function saveStore(store) {
     storeUserOverrides[currentStore] = JSON.parse(JSON.stringify(userOverrides));
     storeZonesSnapshot[currentStore] = zones.map(z => Object.assign({}, z));
   }
-  // Firebase 지점은 window.storeMap/storeNames/storeZonesSnapshot 에 있음
   var allMap   = window.storeMap   || storeMap;
   var allNames = window.storeNames || storeNames;
   var allSnaps = window.storeZonesSnapshot || storeZonesSnapshot;
   var allOvrs  = window.storeUserOverrides || storeUserOverrides;
 
   if (!allMap[store]) {
-    showToast('⚠️ 지점 데이터를 찾을 수 없습니다: ' + store);
+    showToast('⚠️ 지점 데이터 없음: ' + store + ' (F12 콘솔 확인)');
+    console.error('[saveStore] storeMap에 없는 지점:', store, '전체 목록:', Object.keys(allMap));
     return;
   }
+
+  var snap = allSnaps[store];
+  if (!snap || snap.length === 0) {
+    console.warn('[saveStore] zones 스냅샷 없음:', store, '- storeMap.zones() 사용');
+  }
+
   var now = new Date();
   var ymd = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
   var storeName = allNames[store] || store;
   var data = { savedAt: new Date().toISOString(), stores: {} };
   data.stores[store] = buildStoreData(store);
+  console.log('[saveStore]', storeName, '- zones:', data.stores[store].zones.length, '개');
   downloadJSON(data, '킴스클럽_2026도면_' + storeName + '_' + ymd + '.json');
   showToast('✅ ' + storeName + ' JSON 저장 완료!');
 }
@@ -4314,11 +4329,24 @@ function buildStoreData(store) {
 }
 
 function downloadJSON(data, fname) {
-  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = fname;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  try {
+    var json = JSON.stringify(data, null, 2);
+    var blob = new Blob([json], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 2000);
+  } catch(err) {
+    showToast('❌ 저장 오류: ' + err.message);
+    console.error('downloadJSON error:', err);
+  }
 }
 
 function toggleSaveDrop(e) {
@@ -4364,31 +4392,25 @@ function loadJSON(input){
         loadedZones = data.data.zones;
         loadedOverrides = data.data.userOverrides || null;
       }
-      // 형식 4: { savedAt, stores: { code: { name, zones, userOverrides } } } ← 전체 백업 형식
+      // 형식 4: { savedAt, stores: { code: { name, zones, userOverrides } } } ← 전체/개별 백업 형식
       else if(data.stores && typeof data.stores === 'object'){
-        // 현재 지점 코드에 해당하는 데이터 찾기
-        const storeCode = window.currentStore || 'gs';
-        const storeData = data.stores[storeCode];
+        const storeCodes = Object.keys(data.stores);
+        const currentCode = window.currentStore || 'gs';
+
+        // 현재 지점 코드가 파일에 있으면 우선 사용, 없으면 파일의 첫 번째 지점 사용
+        const matchCode = storeCodes.includes(currentCode) ? currentCode : storeCodes[0];
+        const storeData = data.stores[matchCode];
+
         if(storeData && storeData.zones && Array.isArray(storeData.zones)){
           loadedZones = storeData.zones;
           loadedOverrides = storeData.userOverrides || null;
-        } else {
-          // 현재 지점 없으면 첫 번째 지점 데이터 사용
-          const firstCode = Object.keys(data.stores)[0];
-          const firstStore = data.stores[firstCode];
-          if(firstStore && firstStore.zones && Array.isArray(firstStore.zones)){
-            loadedZones = firstStore.zones;
-            loadedOverrides = firstStore.userOverrides || null;
-          }
         }
-        // stores 안의 모든 지점 데이터를 Firebase에 일괄 반영
+        // stores 안의 모든 지점 데이터를 스냅샷에 반영
         if(data.stores && typeof window._firebaseSave === 'function'){
           Object.keys(data.stores).forEach(code => {
             const sd = data.stores[code];
             if(!sd || !sd.zones) return;
-            // storeMap에 없는 지점이면 스킵
             if(!window.storeMap || !window.storeMap[code]) return;
-            // storeZonesSnapshot, storeUserOverrides 업데이트
             if(window.storeZonesSnapshot) window.storeZonesSnapshot[code] = sd.zones.map(z=>Object.assign({},z));
             if(window.storeUserOverrides) window.storeUserOverrides[code] = sd.userOverrides || {};
           });
@@ -4444,6 +4466,15 @@ function applyPendingJson() {
       Object.keys(userOverrides).forEach(k => delete userOverrides[k]);
       Object.assign(userOverrides, loadedOverrides);
     }
+    // seasonOverrides 복원
+    if (_pendingJsonData === null && data && data.stores) {
+      // 이미 null 처리됨, raw에서 가져옴
+    }
+    const rawSo = (data && data.stores && data.stores[window.currentStore || 'gs'] || {}).seasonOverrides;
+    if (rawSo && typeof seasonOverrides !== 'undefined') {
+      Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
+      Object.assign(seasonOverrides, rawSo);
+    }
     if (typeof window._firebaseSave === 'function') window._firebaseSave(currentStore);
     selId = null;
     render(); renderPanel(); renderNav();
@@ -4456,6 +4487,11 @@ function applyPendingJson() {
         if (!window.storeMap || !window.storeMap[code]) return;
         if (window.storeZonesSnapshot) window.storeZonesSnapshot[code] = sd.zones.map(z => Object.assign({}, z));
         if (window.storeUserOverrides) window.storeUserOverrides[code] = sd.userOverrides || {};
+        // 현재 지점이면 seasonOverrides도 복원
+        if (code === currentStore && sd.seasonOverrides && typeof seasonOverrides !== 'undefined') {
+          Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
+          Object.assign(seasonOverrides, sd.seasonOverrides);
+        }
         window._firebaseSave(code);
       });
     }
@@ -4766,14 +4802,14 @@ function parseExcelToZones(workbook, sheetName) {
 // 지점 추가 모달
 // ── 지점명 수정 ──
 function openRenameStoreModal() {
-  const sel = document.getElementById('storeSelect');
-  const code = (sel && sel.value) || currentStore;
-  const name = storeNames[code] || code;
+  var code = currentStore;
+  var allNames = window.storeNames || storeNames;
+  var name = allNames[code] || code;
   document.getElementById('renameStoreCurrentName').textContent = name;
   document.getElementById('renameStoreInput').value = name;
   document.getElementById('renameStoreModal').setAttribute('data-code', code);
   document.getElementById('renameStoreModal').classList.add('open');
-  setTimeout(() => document.getElementById('renameStoreInput').select(), 100);
+  setTimeout(function() { document.getElementById('renameStoreInput').select(); }, 100);
 }
 function closeRenameStoreModal() {
   document.getElementById('renameStoreModal').classList.remove('open');
@@ -4782,33 +4818,39 @@ function doRenameStore() {
   const newName = document.getElementById('renameStoreInput').value.trim();
   if (!newName) { showToast('❌ 지점명을 입력하세요'); return; }
 
-  const sel = document.getElementById('storeSelect');
-  const code = (sel && sel.value) || currentStore;
+  const code = document.getElementById('renameStoreModal').getAttribute('data-code') || currentStore;
   if (!code) { showToast('❌ 지점 코드 오류'); return; }
 
   // ① 모달 즉시 닫기
   document.getElementById('renameStoreModal').classList.remove('open');
 
-  // ② 메모리 업데이트
+  // ② 메모리 전체 업데이트 (로컬 + window 모두)
   storeNames[code] = newName;
   if (storeMap && storeMap[code]) storeMap[code].name = newName;
   if (window.storeNames) window.storeNames[code] = newName;
   if (window.storeMap && window.storeMap[code]) window.storeMap[code].name = newName;
 
-  // ③ 드롭다운 반영
+  // ③ storeSelect 드롭다운 반영
+  const sel = document.getElementById('storeSelect');
   if (sel) {
     const opt = sel.querySelector('option[value="' + code + '"]');
     if (opt) opt.textContent = newName;
   }
-  updateSaveDropdown();
+  // 개별 저장 버튼 이름도 갱신
+  const saveBtn = document.querySelector('#individualSaveContainer button[data-store="' + code + '"]');
+  if (saveBtn) saveBtn.textContent = newName;
 
   // ④ 토스트
   showToast('✅ "' + newName + '"으로 변경됨');
 
-  // ⑤ Firebase 저장 (100ms 후 백그라운드)
+  // ⑤ Firebase 저장 — _stores 경로(이름)와 데이터 경로(name 필드) 모두 저장
   setTimeout(function() {
     if (typeof window._updateStoreName === 'function') {
       window._updateStoreName(code, newName);
+    }
+    // 데이터 경로의 name 필드도 업데이트
+    if (typeof window._firebaseSave === 'function') {
+      window._firebaseSave(code);
     }
   }, 100);
 }
