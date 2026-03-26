@@ -608,15 +608,15 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
           if (data.zones && Array.isArray(data.zones) && typeof storeZonesSnapshot !== 'undefined') {
             storeZonesSnapshot[store] = data.zones.map(z => Object.assign({}, z));
           }
-          // 강서점 데이터 로드 시 GS_OVERRIDES 갱신 (새 연동 번호 포함)
-          if (store === 'gs' && data.userOverrides && typeof GS_OVERRIDES !== 'undefined') {
-            Object.keys(data.userOverrides).forEach(function(wkId) {
-              if (!GS_OVERRIDES[wkId]) GS_OVERRIDES[wkId] = {};
-              Object.assign(GS_OVERRIDES[wkId], data.userOverrides[wkId]);
-            });
-          }
           if (typeof currentStore !== 'undefined' && store === currentStore) {
             if (data.userOverrides) {
+              // 강서점 Firebase 로드 시 GS_OVERRIDES 갱신 (새 연동 번호 포함)
+              if (store === 'gs' && typeof GS_OVERRIDES !== 'undefined') {
+                Object.keys(data.userOverrides).forEach(function(wkId) {
+                  if (!GS_OVERRIDES[wkId]) GS_OVERRIDES[wkId] = {};
+                  Object.assign(GS_OVERRIDES[wkId], data.userOverrides[wkId]);
+                });
+              }
               Object.keys(userOverrides).forEach(k => delete userOverrides[k]);
               Object.assign(userOverrides, data.userOverrides);
             }
@@ -662,7 +662,7 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
       if (typeof storeUserOverrides !== 'undefined' && store !== currentStore) {
         if (data.userOverrides) {
           storeUserOverrides[store] = data.userOverrides;
-          // 강서점 실시간 업데이트 시 GS_OVERRIDES도 갱신
+          // 강서점 실시간 업데이트 시 GS_OVERRIDES도 갱신 (새 연동 번호 포함)
           if (store === 'gs' && typeof GS_OVERRIDES !== 'undefined') {
             Object.keys(data.userOverrides).forEach(function(wkId) {
               if (!GS_OVERRIDES[wkId]) GS_OVERRIDES[wkId] = {};
@@ -2122,6 +2122,7 @@ function renderSeasonSummary(w){
   const imp  = sm.import || '';
   const veg  = sm.veg  || '';
   const fish = sm.fish || '';
+  const meat = sm.meat || '';
   const existingBar = document.getElementById('seasonSummary');
   const bar = existingBar || document.createElement('div');
   if(!existingBar){
@@ -2138,6 +2139,7 @@ function renderSeasonSummary(w){
     (imp ? pill('🌍 수입:',  imp,  '#f0f9ff','#7dd3fc','#0369a1') : '') +
     (veg ? pill('🥦 채소:',  veg,  '#f0fdf4','#86efac','#166534') : '') +
     (fish? pill('🐟 수산:',  fish, '#f0fdfa','#5eead4','#0f766e') : '') +
+    (meat? pill('🥩 축산:',  meat, '#fff1f2','#fda4af','#be123c') : '') +
     (mkt ? `<span style="font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap">🎯 ${mkt}${life?' · '+life:''}</span>` : '');
 }
 
@@ -3059,10 +3061,13 @@ function renderPanel(){
         // 강서 구역 목록으로 옵션 생성 (GS_ZONES에서 gsLink 있는 것들 + 수동 추가된 것들)
         var allGsLinks = {};
         Object.entries(GS_LINK_LABEL).forEach(function(e){ allGsLinks[e[0]] = e[1]; });
-        // 런타임에 강서에서 추가된 gsLink도 반영
+        // 런타임에 강서에서 추가된 gsLink도 반영 (초기 스냅샷)
         if (typeof GS_ZONES !== 'undefined') {
           GS_ZONES.forEach(function(gz){ if(gz.gsLink) allGsLinks[gz.gsLink] = allGsLinks[gz.gsLink] || gz.name; });
         }
+        // Firebase에서 로드된 강서점 실시간 zones도 반영 (새로 추가된 연동 번호 포함)
+        var _gsSnap = (typeof storeZonesSnapshot !== 'undefined' && storeZonesSnapshot['gs']) || [];
+        _gsSnap.forEach(function(gz){ if(gz.gsLink) allGsLinks[gz.gsLink] = allGsLinks[gz.gsLink] || gz.name; });
         // 현재 note에서 gsLink 값 추출
         var curLink = '';
         var noteVal = z.note || '';
@@ -3194,7 +3199,7 @@ function applyGsLinkSelect(num) {
       // 강서점 데이터: storeUserOverrides > GS_OVERRIDES > WEEKS[].overrides
       // 새로 추가된 연동 번호는 GS_OVERRIDES(초기 스냅샷)에 없을 수 있으므로
       // Firebase 실시간 데이터(storeUserOverrides['gs'])를 우선 전체 확인
-      const gsStoreOv = (window.storeUserOverrides?.['gs']?.[wkId]) || (storeUserOverrides['gs']?.[wkId]) || {};
+      const gsStoreOv = (typeof storeUserOverrides !== 'undefined' && storeUserOverrides['gs']?.[wkId]) || {};
       const gsHardOv = GS_OVERRIDES[wkId] || {};
       const gsWeekOv = w.overrides || {};
       const gsData = {...(gsWeekOv[gsZoneId]||{}), ...(gsHardOv[gsZoneId]||{}), ...(gsStoreOv[gsZoneId]||{})};
