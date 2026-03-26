@@ -138,25 +138,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 
 /* 그리기 미리보기 */
 
-/* 스마트 가이드 */
-.sg { pointer-events:none !important; }
-
-/* 간격 가이드 — 이동 시 주변 거리 표시 */
-.sg-gap-line {
-  position:absolute; pointer-events:none; z-index:9900;
-  background:#e8175d;
-}
-.sg-gap-label {
-  position:absolute; pointer-events:none; z-index:9901;
-  background:#e8175d; color:#fff;
-  font-size:9px; font-weight:800; font-family:'Pretendard',sans-serif;
-  padding:1px 4px; border-radius:2px;
-  white-space:nowrap; line-repeat:1;
-}
-/* 끝선 스냅 가이드 — 리사이즈 시 */
-.sg-snap-line {
-  position:absolute; pointer-events:none; z-index:9890;
-}
+/* 스마트 가이드라인 */
+.smart-guide { pointer-events:none; z-index:9999; }
 .draw-preview{position:absolute;background:rgba(59,130,246,.2);border:2px dashed #3b82f6;border-radius:6px;pointer-events:none;z-index:100;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#3b82f6;}
 
 /* 클릭 위치 표시 */
@@ -169,9 +152,13 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 
 /* ZONE BLOCK */
 .zb{position:absolute;border-radius:5px;border:2px solid;cursor:grab;user-select:none;z-index:10;display:flex;flex-direction:column;overflow:hidden;transition:box-shadow .15s;}
-.zb.sel{overflow:visible !important;z-index:50;}
+.zb.sel{overflow:visible !important;}
+.zb.sel .rh-rot{display:flex;}
+/* 회전된 집기 선택 시 — 깔끔한 단색 외곽선만 */
+.zb.sel.rotated{box-shadow:0 0 0 2.5px #3a8c3a !important;outline:none !important;}
 .zb:active{cursor:grabbing;}
-.zb.dragging{opacity:.8;box-shadow:0 8px 28px rgba(0,0,0,.22);z-index:100;}
+.zb.dragging{opacity:.72;transform:scale(1.03);box-shadow:0 8px 28px rgba(0,0,0,.22);z-index:100;}
+.zb.sel{box-shadow:0 0 0 3px rgba(58,140,58,.6)!important;z-index:50;}
 .zb.multi-sel{box-shadow:0 0 0 3px rgba(99,102,241,.7)!important;z-index:49;}
 .multi-edit-panel{background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:8px;padding:11px 12px;margin-bottom:10px;}
 .multi-edit-panel .me-title{font-size:9px;font-weight:800;color:#6d28d9;letter-spacing:.6px;text-transform:uppercase;margin-bottom:8px;}
@@ -204,56 +191,50 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 .zs-tbd{background:#f3f4f6;color:#9ca3af;}
 .ent-block{background:linear-gradient(135deg,#fef2f2,#fee2e2)!important;border:3px solid #ef4444!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;font-size:14px;font-weight:900;color:#dc2626;gap:2px;box-shadow:0 0 0 2px rgba(239,68,68,.3),inset 0 0 12px rgba(239,68,68,.15)!important;}
 .ent-sub{font-size:10px;font-weight:400;}
-/* ── 일러스트레이터 스타일 핸들 ── */
-/* 선택 시 바운딩박스 오버레이 — .zb 바깥에 그려짐 */
-.bb-overlay{
-  position:absolute;
-  pointer-events:none;
-  z-index:9800;
-  box-sizing:border-box;
-  border:1.5px solid #1b72e8;
-}
-/* 8방향 리사이즈 핸들 */
-.rh{
-  position:absolute;
-  width:8px;height:8px;
-  background:#fff;
-  border:1.5px solid #1b72e8;
-  border-radius:1px;
-  z-index:9850;
-  cursor:pointer;
-  box-sizing:border-box;
-  transition:background .08s;
-}
-.rh:hover{ background:#1b72e8; }
-/* 커서 방향별 */
-.rh[data-d="nw"]{cursor:nw-resize;}
-.rh[data-d="n"] {cursor:n-resize;}
-.rh[data-d="ne"]{cursor:ne-resize;}
-.rh[data-d="e"] {cursor:e-resize;}
-.rh[data-d="se"]{cursor:se-resize;}
-.rh[data-d="s"] {cursor:s-resize;}
-.rh[data-d="sw"]{cursor:sw-resize;}
-.rh[data-d="w"] {cursor:w-resize;}
+.rh{position:absolute;background:rgba(0,0,0,.12);border-radius:2px;z-index:20;}
+.rh-e{right:2px;top:50%;transform:translateY(-50%);width:5px;height:20px;cursor:e-resize;}
+.rh-s{bottom:2px;left:50%;transform:translateX(-50%);height:5px;width:20px;cursor:s-resize;}
+.rh-se{right:2px;bottom:2px;width:9px;height:9px;cursor:se-resize;border-radius:2px;}
 /* 회전 핸들 */
 .rh-rot{
   position:absolute;
-  width:16px;height:16px;
+  top:-32px;
+  left:50%;
+  transform:translateX(-50%);
+  width:22px;height:22px;
   background:#fff;
-  border:1.5px solid #1b72e8;
+  border:2px solid #6366f1;
   border-radius:50%;
   cursor:grab;
-  z-index:9850;
+  z-index:30;
   display:none;align-items:center;justify-content:center;
-  font-size:10px;color:#1b72e8;
-  box-shadow:0 1px 4px rgba(0,0,0,.2);
+  box-shadow:0 2px 10px rgba(99,102,241,.5);
+  transition:background .12s,box-shadow .12s;
   user-select:none;
-  transition:background .08s;
 }
-.rh-rot::after{content:'↻';font-weight:900;}
-.rh-rot:hover{background:#1b72e8;color:#fff;}
-.rh-rot:active{cursor:grabbing;}
-.zb.sel .rh-rot{display:flex;}
+.rh-rot::before{
+  /* 연결선 */
+  content:'';
+  position:absolute;
+  bottom:-10px;left:50%;
+  transform:translateX(-50%);
+  width:1.5px;height:10px;
+  background:#6366f1;
+  opacity:.6;
+}
+.rh-rot::after{
+  content:'↻';
+  font-size:14px;
+  line-height:1;
+  color:#6366f1;
+  font-weight:900;
+}
+.rh-rot:hover{background:#6366f1;box-shadow:0 3px 14px rgba(99,102,241,.7);}
+.rh-rot:hover::after{color:#fff;}
+.rh-rot:hover::before{background:#fff;}
+.rh-rot:active{cursor:grabbing;transform:translateX(-50%) scale(0.92);}
+/* 회전된 집기는 리사이즈 핸들 숨김 */
+.zb.rotated .rh{display:none;}
 
 /* COLORS */
 .cn1{background:#fff0f0;border-color:#f87171;}.cn2{background:#fff5e6;border-color:#fb923c;}
@@ -1141,7 +1122,6 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
     <button class="draw-btn draw-btn-ent" onclick="setDrawMode('입구','ent_right')" data-type="입구">🚪 입구→</button>
     <button class="draw-btn draw-btn-pillar" onclick="setDrawMode('기둥','cpillar')" data-type="기둥">⬛ 기둥</button>
   </div>
-
   <div class="draw-sep"></div>
   <span class="draw-info" id="drawInfo">도면 위에서 클릭 → 드래그로 구역 그리기</span>
   <button class="draw-btn draw-cancel" onclick="cancelDrawMode()">✕ 그리기 취소</button>
@@ -2493,11 +2473,11 @@ function render(){
       const arrow = arrowMap[z.color] || '↑';
       el.classList.add('ent-block');
       el.innerHTML=`<div style="font-size:42px;font-weight:900;color:#dc2626;line-height:1;text-shadow:0 2px 4px rgba(220,38,38,.3);">${arrow}</div><div style="font-size:13px;font-weight:800;color:#991b1b;margin-top:2px;">${z.name}</div>${z.note?`<div style="font-size:9px;color:#b91c1c;margin-top:1px;">${z.note}</div>`:''}
-      ${editMode?`${makeHandles(z.id)}`:''}`;
+      ${editMode?`<div class="rh rh-e" data-id="${z.id}" data-d="e"></div><div class="rh rh-s" data-id="${z.id}" data-d="s"></div><div class="rh rh-se" data-id="${z.id}" data-d="se"></div><div class="rh-rot" data-id="${z.id}" title="회전"></div>`:''}`;
     } else if(z.color==='ent'){
       el.classList.add('ent-block');
       el.innerHTML=`<div style="font-size:42px;font-weight:900;color:#dc2626;line-height:1;text-shadow:0 2px 4px rgba(220,38,38,.3);">↑</div><div style="font-size:13px;font-weight:800;color:#991b1b;">${z.name}</div>${z.note?`<div style="font-size:9px;color:#b91c1c;">${z.note}</div>`:''}
-      ${editMode?`${makeHandles(z.id)}`:''}`;
+      ${editMode?`<div class="rh rh-e" data-id="${z.id}" data-d="e"></div><div class="rh rh-s" data-id="${z.id}" data-d="s"></div><div class="rh rh-se" data-id="${z.id}" data-d="se"></div><div class="rh-rot" data-id="${z.id}" title="회전"></div>`:''}`;
     } else {
       const ovr = wkOvr[z.id];
       const dispProd = ovr?.prod||z.prod||'';
@@ -2526,7 +2506,7 @@ function render(){
         ${ovr?.note?`<div class="znote">${ovr.note}</div>`:''}
         ${statusHtml}
       </div>
-      ${editMode?`${makeHandles(z.id)}`:''}`;
+      ${editMode?`<div class="rh rh-e" data-id="${z.id}" data-d="e"></div><div class="rh rh-s" data-id="${z.id}" data-d="s"></div><div class="rh rh-se" data-id="${z.id}" data-d="se"></div><div class="rh-rot" data-id="${z.id}" title="회전"></div>`:''}`;
     }
 
     if(editMode){
@@ -2564,8 +2544,6 @@ function render(){
   }
   
   requestAnimationFrame(autoScale);
-  // 바운딩박스 + 핸들 위치 갱신
-  requestAnimationFrame(updateBoundingBox);
 }
 
 function autoScale(){
@@ -3057,7 +3035,6 @@ function openDetailPanel() {
 
 function selZone(id){
   selId=id; render(); applyScale(); renderPanel(); renderWkSummary(); openDetailPanel();
-  requestAnimationFrame(updateBoundingBox);
   const z=zones.find(x=>x.id===id);
   if(z) document.getElementById('tbHint').textContent=`선택: ${z.name} — ${getCurWk()?.label}`;
 }
@@ -3621,98 +3598,106 @@ function upd(f,v){
   }
 }
 
-// ═══════════ DRAG & RESIZE + SMART GUIDES (일러스트레이터 스타일) ═══════════
+// ═══════════ PIXEL DRAG & RESIZE + SMART GUIDES ═══════════
 
-/* ── 집기 위치 헬퍼 ── */
+/* ── 스마트 가이드라인 ── */
+const GUIDE_THRESH = 6; // px 이내면 스냅
+let activeGuides = [];
+
 function pxPos(z){
-  const w = z.cols*CELL + (z.cols-1)*GAP;
-  const h = z.rows*ROW  + (z.rows-1)*GAP;
-  const l = px(z.col)+8, t = py(z.row)+8;
-  return { l, r:l+w, cx:l+w/2, t, b:t+h, cy:t+h/2, w, h };
+  return {
+    l: px(z.col)+8,
+    r: px(z.col)+8 + (z.cols*CELL+(z.cols-1)*GAP),
+    t: py(z.row)+8,
+    b: py(z.row)+8 + (z.rows*ROW+(z.rows-1)*GAP),
+    cx: px(z.col)+8 + (z.cols*CELL+(z.cols-1)*GAP)/2,
+    cy: py(z.row)+8 + (z.rows*ROW+(z.rows-1)*GAP)/2
+  };
 }
 
-/* ── 가이드 초기화 ── */
 function clearGuides(){
-  const gc=document.getElementById('gc');
-  if(gc) gc.querySelectorAll('.sg,.sg-snap-line').forEach(g=>g.remove());
+  document.querySelectorAll('.smart-guide').forEach(g=>g.remove());
+  activeGuides=[];
 }
 
-/* ══════════════════════════════════════════════════════════
-   스마트 가이드 — 드래그/리사이즈 공용
-   · 다른 집기의 끝선·중앙선과 SNAP_THRESH 이내면 선 표시 + 스냅
-   ===================================================== */
-const SNAP_THRESH = 6;  // px
+function drawGuide(isV, pos, color){
+  const gc=document.getElementById('gc'); if(!gc) return;
+  const g=document.createElement('div');
+  g.className='smart-guide';
+  if(isV){
+    g.style.cssText=`position:absolute;left:${pos}px;top:0;width:1px;height:100%;background:${color};pointer-events:none;z-index:9999;opacity:.85;`;
+  } else {
+    g.style.cssText=`position:absolute;top:${pos}px;left:0;height:1px;width:100%;background:${color};pointer-events:none;z-index:9999;opacity:.85;`;
+  }
+  gc.appendChild(g);
+}
 
-function calcSnapGuides(movingIds, testPos){
+function calcGuides(movingIds, testPositions){
+  // testPositions: {id: {l,r,t,b,cx,cy}}
   clearGuides();
-  const gc = document.getElementById('gc'); if(!gc) return {dx:0, dy:0};
-  const others = zones.filter(z => !movingIds.has(z.id));
-  const SHOW = 10; // 가이드 표시 범위
-  let bestDx=null, bestDy=null;
+  const others = zones.filter(z=>!movingIds.has(z.id));
+  const snaps = {dx:null, dy:null};
+  const lines = [];
 
   movingIds.forEach(mid=>{
-    const mp = testPos[mid]; if(!mp) return;
+    const mp = testPositions[mid]; if(!mp) return;
     others.forEach(oz=>{
       const op = pxPos(oz);
-
-      // X축 — 수직 가이드선
-      [
-        [mp.l, op.l, '#4f8ef7'], [mp.r, op.r, '#4f8ef7'],
-        [mp.l, op.r, '#16a34a'], [mp.r, op.l, '#16a34a'],
-        [mp.cx,op.cx,'#f59e0b'],
-      ].forEach(([a,b,c])=>{
-        const d=Math.abs(a-b); if(d>SHOW) return;
-        const snapped = d<=SNAP_THRESH;
-        const ln=document.createElement('div');
-        ln.className='sg-snap-line';
-        ln.style.cssText=`position:absolute;left:${b}px;top:0;bottom:0;width:${snapped?2:1}px;background:${c};opacity:${snapped?0.9:0.4};pointer-events:none;z-index:9890;`;
-        gc.appendChild(ln);
-        if(snapped && (!bestDx || d<Math.abs(bestDx.d))) bestDx={d:b-a};
+      // vertical guides (x-axis alignment)
+      const vPairs = [
+        [mp.l, op.l, '#6366f1'], [mp.r, op.r, '#6366f1'],
+        [mp.l, op.r, '#10b981'], [mp.r, op.l, '#10b981'],
+        [mp.cx, op.cx, '#f59e0b'],
+      ];
+      vPairs.forEach(([a,b,c])=>{
+        const d=Math.abs(a-b);
+        if(d<GUIDE_THRESH){
+          if(snaps.dx===null || d<Math.abs(snaps.dx.d)) snaps.dx={d:b-a, pos:b, color:c};
+          lines.push({isV:true, pos:b, color:c});
+        }
       });
-
-      // Y축 — 수평 가이드선
-      [
-        [mp.t, op.t, '#4f8ef7'], [mp.b, op.b, '#4f8ef7'],
-        [mp.t, op.b, '#16a34a'], [mp.b, op.t, '#16a34a'],
-        [mp.cy,op.cy,'#f59e0b'],
-      ].forEach(([a,b,c])=>{
-        const d=Math.abs(a-b); if(d>SHOW) return;
-        const snapped = d<=SNAP_THRESH;
-        const ln=document.createElement('div');
-        ln.className='sg-snap-line';
-        ln.style.cssText=`position:absolute;top:${b}px;left:0;right:0;height:${snapped?2:1}px;background:${c};opacity:${snapped?0.9:0.4};pointer-events:none;z-index:9890;`;
-        gc.appendChild(ln);
-        if(snapped && (!bestDy || d<Math.abs(bestDy.d))) bestDy={d:b-a};
+      // horizontal guides (y-axis alignment)
+      const hPairs = [
+        [mp.t, op.t, '#6366f1'], [mp.b, op.b, '#6366f1'],
+        [mp.t, op.b, '#10b981'], [mp.b, op.t, '#10b981'],
+        [mp.cy, op.cy, '#f59e0b'],
+      ];
+      hPairs.forEach(([a,b,c])=>{
+        const d=Math.abs(a-b);
+        if(d<GUIDE_THRESH){
+          if(snaps.dy===null || d<Math.abs(snaps.dy.d)) snaps.dy={d:b-a, pos:b, color:c};
+          lines.push({isV:false, pos:b, color:c});
+        }
       });
     });
   });
-
-  return { dx: bestDx?bestDx.d:0, dy: bestDy?bestDy.d:0 };
+  // draw guides
+  lines.forEach(l=>drawGuide(l.isV, l.pos, l.color));
+  return snaps; // {dx, dy} snap corrections in px
 }
 
-// 리사이즈용 alias
-function calcGuides(movingIds, testPos){ return calcSnapGuides(movingIds, testPos); }
-
-/* ══════════════════════════════════════════════════════════
-   픽셀 드래그 이동
-   · 기본: 완전 자유 이동
-   · 스마트 가이드: 다른 집기 끝선/중앙 근처에서 가이드선 + 스냅
-   · Shift: 수평 또는 수직으로 고정
-   ===================================================== */
+/* ── 픽셀 단위 단일/다중 드래그 ── */
 let pixelDrag = null;
 
 function startPixelDrag(e, startId){
   const gc=document.getElementById('gc');
+  const gcRect=gc.getBoundingClientRect();
   const movingIds = multiSelIds.size>0 ? new Set(multiSelIds) : new Set([startId]);
   if(!movingIds.has(startId)) movingIds.add(startId);
 
+  // 시작 위치(px) 저장
   const startPx={};
   movingIds.forEach(id=>{
-    const z=zones.find(x=>x.id===id); if(!z) return;
-    startPx[id]={ l:px(z.col)+8, t:py(z.row)+8 };
+    const z=zones.find(x=>x.id===id);
+    if(z) startPx[id]={ l:px(z.col)+8, t:py(z.row)+8, col:z.col, row:z.row };
   });
 
-  pixelDrag={ startId, movingIds, startMouseX:e.clientX, startMouseY:e.clientY, startPx, moved:false };
+  pixelDrag={
+    startId, movingIds,
+    startMouseX: e.clientX, startMouseY: e.clientY,
+    startPx, gcRect,
+    moved: false
+  };
 
   movingIds.forEach(id=>{
     const el=document.getElementById('z-'+id);
@@ -3725,38 +3710,35 @@ function startPixelDrag(e, startId){
 
 function onPixelDragMove(e){
   if(!pixelDrag) return;
-  let rawDx=(e.clientX-pixelDrag.startMouseX)/curScale;
-  let rawDy=(e.clientY-pixelDrag.startMouseY)/curScale;
+  const rawDx=(e.clientX-pixelDrag.startMouseX)/curScale;
+  const rawDy=(e.clientY-pixelDrag.startMouseY)/curScale;
   if(Math.abs(rawDx)>2||Math.abs(rawDy)>2) pixelDrag.moved=true;
   if(!pixelDrag.moved) return;
 
-  // Shift → 수평/수직 고정
-  if(e.shiftKey){
-    if(Math.abs(rawDx)>=Math.abs(rawDy)) rawDy=0;
-    else rawDx=0;
-  }
-
-  // 스마트 가이드 + 스냅 계산
+  // 임시 픽셀 위치 계산
   const testPos={};
   pixelDrag.movingIds.forEach(id=>{
     const sp=pixelDrag.startPx[id]; if(!sp) return;
-    const el=document.getElementById('z-'+id); if(!el) return;
-    const w=parseFloat(el.style.width), h=parseFloat(el.style.height);
+    const w=parseInt(document.getElementById('z-'+id)?.style.width)||0;
+    const h=parseInt(document.getElementById('z-'+id)?.style.height)||0;
     const nl=sp.l+rawDx, nt=sp.t+rawDy;
-    testPos[id]={l:nl,r:nl+w,t:nt,b:nt+h,cx:nl+w/2,cy:nt+h/2,w,h};
+    testPos[id]={l:nl, r:nl+w, t:nt, b:nt+h, cx:nl+w/2, cy:nt+h/2};
   });
-  const snaps = calcSnapGuides(pixelDrag.movingIds, testPos);
-  const finalDx = rawDx + snaps.dx;
-  const finalDy = rawDy + snaps.dy;
 
-  // DOM 이동
+  // 스마트 가이드 계산 + 스냅
+  const snaps=calcGuides(pixelDrag.movingIds, testPos);
+  const sdx=snaps.dx?snaps.dx.d:0;
+  const sdy=snaps.dy?snaps.dy.d:0;
+
+  // DOM 직접 이동 (render() 호출 없이 — 부드럽게)
   pixelDrag.movingIds.forEach(id=>{
     const sp=pixelDrag.startPx[id]; if(!sp) return;
     const el=document.getElementById('z-'+id); if(!el) return;
-    const nl=Math.max(8, sp.l+finalDx);
-    const nt=Math.max(8, sp.t+finalDy);
+    const nl=Math.max(8, sp.l+rawDx+sdx);
+    const nt=Math.max(8, sp.t+rawDy+sdy);
     el.style.left=nl+'px';
     el.style.top =nt+'px';
+    // zone 데이터도 실시간 업데이트 (col/row)
     const z=zones.find(x=>x.id===id); if(!z) return;
     z.col=Math.max(0,(nl-8)/(CELL+GAP));
     z.row=Math.max(0,(nt-8)/(ROW+GAP));
@@ -3774,28 +3756,31 @@ function onPixelDragEnd(e){
   pixelDrag=null;
 
   document.querySelectorAll('.dragging').forEach(el=>{
-    el.classList.remove('dragging'); el.style.transition='';
+    el.classList.remove('dragging');
+    el.style.transition='';
   });
 
   if(moved){
     saveUndoState();
     render();
     movingIds.forEach(id=>{
-      const el=document.getElementById('z-'+id); if(!el) return;
-      if(movingIds.size>1){ el.classList.add('multi-sel'); el.classList.remove('sel'); }
-      else el.classList.add('sel');
+      const el=document.getElementById('z-'+id);
+      if(el){
+        if(movingIds.size>1){ el.classList.add('multi-sel'); el.classList.remove('sel'); }
+        else { el.classList.add('sel'); }
+      }
     });
     if(movingIds.size>1) showToast(movingIds.size+'개 구역 이동 ✓');
   } else {
+    // 클릭 → 선택
     const id=[...movingIds][0];
     multiSelIds.clear();
     selZone(id);
   }
 }
 
-/* ══════════════════════════════════════════════════════════
-   8방향 리사이즈
-   ===================================================== */
+/* ── 픽셀 단위 리사이즈 ── */
+
 function onRS(e){
   e.preventDefault(); e.stopPropagation();
   const id=e.currentTarget.dataset.id, dir=e.currentTarget.dataset.d;
@@ -3804,11 +3789,11 @@ function onRS(e){
   resizing={
     id, dir,
     sx:e.clientX, sy:e.clientY,
-    sw:parseFloat(el.style.width),  sh:parseFloat(el.style.height),
-    sl:parseFloat(el.style.left),   st:parseFloat(el.style.top),
+    sw:parseInt(el.style.width), sh:parseInt(el.style.height),
+    sl:parseInt(el.style.left),  st:parseInt(el.style.top),
+    scols:z.cols, srows:z.rows
   };
   el.style.transition='none';
-  document.body.style.cursor=getComputedStyle(e.currentTarget).cursor;
   document.addEventListener('mousemove',onRM);
   document.addEventListener('mouseup',onRE);
 }
@@ -3817,39 +3802,22 @@ function onRM(e){
   if(!resizing) return;
   const z=zones.find(x=>x.id===resizing.id); if(!z) return;
   const el=document.getElementById('z-'+resizing.id); if(!el) return;
-  const dir=resizing.dir;
-  const rawDx=(e.clientX-resizing.sx)/curScale;
-  const rawDy=(e.clientY-resizing.sy)/curScale;
-  const MIN_W=20, MIN_H=14;
-
-  let nl=resizing.sl, nt=resizing.st, nw=resizing.sw, nh=resizing.sh;
-  if(dir==='e'||dir==='ne'||dir==='se')  nw=Math.max(MIN_W, resizing.sw+rawDx);
-  if(dir==='w'||dir==='nw'||dir==='sw'){ nw=Math.max(MIN_W, resizing.sw-rawDx); nl=resizing.sl+resizing.sw-nw; }
-  if(dir==='s'||dir==='se'||dir==='sw')  nh=Math.max(MIN_H, resizing.sh+rawDy);
-  if(dir==='n'||dir==='nw'||dir==='ne'){ nh=Math.max(MIN_H, resizing.sh-rawDy); nt=resizing.st+resizing.sh-nh; }
-
-  // 스냅 가이드
-  const testPos={[resizing.id]:{l:nl,r:nl+nw,t:nt,b:nt+nh,cx:nl+nw/2,cy:nt+nh/2,w:nw,h:nh}};
-  const snaps=calcSnapGuides(new Set([resizing.id]), testPos);
-  if(dir==='e'||dir==='ne'||dir==='se')  nw=Math.max(MIN_W, nw+snaps.dx);
-  if(dir==='w'||dir==='nw'||dir==='sw'){ nw=Math.max(MIN_W, nw-snaps.dx); nl=resizing.sl+resizing.sw-nw; }
-  if(dir==='s'||dir==='se'||dir==='sw')  nh=Math.max(MIN_H, nh+snaps.dy);
-  if(dir==='n'||dir==='nw'||dir==='ne'){ nh=Math.max(MIN_H, nh-snaps.dy); nt=resizing.st+resizing.sh-nh; }
-
-  el.style.left=nl+'px'; el.style.top=nt+'px';
-  el.style.width=nw+'px'; el.style.height=nh+'px';
-  z.col=Math.max(0,(nl-8)/(CELL+GAP));
-  z.row=Math.max(0,(nt-8)/(ROW+GAP));
-  z.cols=Math.max(0.2, nw/(CELL+GAP));
-  z.rows=Math.max(0.2, nh/(ROW+GAP));
-  positionHandles(el);
-  updateBoundingBox();
+  const dx=(e.clientX-resizing.sx)/curScale;
+  const dy=(e.clientY-resizing.sy)/curScale;
+  if(resizing.dir==='e'||resizing.dir==='se'){
+    const nw=Math.max(30, resizing.sw+dx);
+    el.style.width=nw+'px';
+    z.cols=Math.max(0.3, nw/(CELL+GAP));
+  }
+  if(resizing.dir==='s'||resizing.dir==='se'){
+    const nh=Math.max(20, resizing.sh+dy);
+    el.style.height=nh+'px';
+    z.rows=Math.max(0.3, nh/(ROW+GAP));
+  }
 }
 
 function onRE(){
   if(!resizing) return;
-  clearGuides();
-  document.body.style.cursor='';
   const el=document.getElementById('z-'+resizing.id);
   if(el) el.style.transition='';
   saveUndoState();
@@ -3860,68 +3828,6 @@ function onRE(){
   renderPanel();
 }
 
-// ── 일러스트레이터 스타일 핸들/바운딩박스 ──────────────────────────────
-
-/** 8방향 핸들 + 회전 핸들 HTML 생성 */
-function makeHandles(id){
-  const dirs = ['nw','n','ne','w','e','sw','s','se'];
-  const rots = dirs.map(d=>`<div class="rh" data-id="${id}" data-d="${d}"></div>`).join('');
-  return rots + `<div class="rh-rot" data-id="${id}" title="회전"></div>`;
-}
-
-/** 핸들 위치 계산 (집기 el 기준) */
-function positionHandles(el){
-  const w = parseFloat(el.style.width);
-  const h = parseFloat(el.style.height);
-  const H = 8; // 핸들 크기
-  const half = H/2;
-  const positions = {
-    nw: { left:-half,       top:-half       },
-    n:  { left:w/2-half,    top:-half       },
-    ne: { left:w-half,      top:-half       },
-    w:  { left:-half,       top:h/2-half    },
-    e:  { left:w-half,      top:h/2-half    },
-    sw: { left:-half,       top:h-half      },
-    s:  { left:w/2-half,    top:h-half      },
-    se: { left:w-half,      top:h-half      },
-  };
-  el.querySelectorAll('.rh[data-d]').forEach(rh=>{
-    const p = positions[rh.dataset.d];
-    if(p){ rh.style.left=p.left+'px'; rh.style.top=p.top+'px'; }
-  });
-  // 회전 핸들: 상단 중앙 바깥 20px
-  const rotEl = el.querySelector('.rh-rot');
-  if(rotEl){ rotEl.style.left=(w/2-8)+'px'; rotEl.style.top='-30px'; }
-}
-
-/** 바운딩박스 오버레이 — gc에 절대 위치로 그림 */
-function updateBoundingBox(){
-  // 기존 오버레이 제거
-  const gc=document.getElementById('gc');
-  if(!gc) return;
-  gc.querySelectorAll('.bb-overlay').forEach(e=>e.remove());
-
-  // 선택된 집기 없으면 종료
-  const ids = selId ? [selId] : [];
-  multiSelIds.forEach(id=>ids.push(id));
-  if(ids.length===0) return;
-
-  ids.forEach(id=>{
-    const el=document.getElementById('z-'+id); if(!el) return;
-    const l=parseFloat(el.style.left), t=parseFloat(el.style.top);
-    const w=parseFloat(el.style.width), h=parseFloat(el.style.height);
-    const rot=(zones.find(z=>z.id===id)||{}).rotation||0;
-
-    const bb=document.createElement('div');
-    bb.className='bb-overlay';
-    bb.style.cssText=`left:${l}px;top:${t}px;width:${w}px;height:${h}px;`
-      +(rot?`transform:rotate(${rot}deg);transform-origin:center;`:'');
-    gc.appendChild(bb);
-
-    // 핸들 위치 갱신 (이미 el 안에 있음)
-    positionHandles(el);
-  });
-}
 
 // ═══════════ 크기 맞추기 / 정렬 ═══════════
 
@@ -4291,6 +4197,38 @@ let drawMode = null;  // {type, color}
 let drawStart = null; // {col, row}
 let drawPreview = null;
 
+function toggleDrawToolbar() {
+  const tb = document.getElementById('drawToolbar');
+  const btn = document.getElementById('drawModeBtn');
+  if (tb.classList.contains('hidden')) {
+    tb.classList.remove('hidden');
+    btn.style.background = '#16a34a';
+    btn.textContent = '✏️ 그리기 ON';
+  } else {
+    tb.classList.add('hidden');
+    btn.style.background = '#1e40af';
+    btn.textContent = '✏️ 그리기';
+    cancelDrawMode();
+  }
+}
+
+function setDrawMode(type, color) {
+  // 이전 선택 해제
+  document.querySelectorAll('.draw-btn').forEach(b => b.classList.remove('active'));
+  // 새로 선택
+  event.target.classList.add('active');
+  drawMode = { type, color };
+  document.getElementById('drawInfo').textContent = `[${type}] 도면 위에서 클릭+드래그로 그리기`;
+  showToast(`✏️ ${type} 그리기 모드 — 도면에서 드래그하세요`);
+}
+
+function cancelDrawMode() {
+  drawMode = null;
+  drawStart = null;
+  if (drawPreview) { drawPreview.remove(); drawPreview = null; }
+  document.querySelectorAll('.draw-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('drawInfo').textContent = '도면 위에서 클릭 → 드래그로 구역 그리기';
+}
 
 // 드래그 선택 박스 변수
 let selectBoxStart = null;
