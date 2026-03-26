@@ -607,7 +607,6 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
           }
           if (data.zones && Array.isArray(data.zones) && typeof storeZonesSnapshot !== 'undefined') {
             storeZonesSnapshot[store] = data.zones.map(z => Object.assign({}, z));
-            // 강서점 zones 로드 완료 → 타 지점에서 접속 중이면 신규 연동번호 반영을 위해 재렌더
             if (store === 'gs' && typeof currentStore !== 'undefined' && currentStore !== 'gs') {
               if (typeof render === 'function') setTimeout(function(){ render(); renderNav(); }, 0);
             }
@@ -1998,35 +1997,28 @@ function getWkData(wkId){
   
   // 강서점이 아닌 경우: gsLink로 연동된 구역에 강서점 데이터 적용
   if (currentStore !== 'gs') {
-    // 강서점 데이터 우선순위: storeUserOverrides > GS_OVERRIDES > WEEKS[].overrides
     const gsStoreOv = storeUserOverrides['gs']?.[wkId] || {};
     const gsHardOv = GS_OVERRIDES[wkId] || {};
-    const gsWeekOv = w.overrides || {}; // 강서점 WEEKS 기본값
-
-    // gsLink → zone ID 변환: 기존 딕셔너리에 없으면 Firebase 실시간 강서 zones에서 찾기
+    const gsWeekOv = w.overrides || {};
     const gsSnap = storeZonesSnapshot['gs'] || [];
-    
+
     zones.forEach(z => {
       if (!z.gsLink) return;
-      // 1) 기존 딕셔너리 조회
       let gsZoneId = GS_LINK_NUM_TO_ID[z.gsLink];
-      // 2) 없으면 Firebase 강서 zones에서 직접 탐색 (gs102, gs103 등 신규 번호)
       if (!gsZoneId) {
         const found = gsSnap.find(gz => gz.gsLink === z.gsLink);
-        if (found) {
-          gsZoneId = found.id;
-          GS_LINK_NUM_TO_ID[z.gsLink] = gsZoneId; // 캐시
-        }
+        if (found) { gsZoneId = found.id; GS_LINK_NUM_TO_ID[z.gsLink] = gsZoneId; }
       }
       if (!gsZoneId) return;
 
-      // 강서점 데이터 병합 (storeUserOverrides > GS_OVERRIDES > WEEKS 기본값)
       const gsData = {...(gsWeekOv[gsZoneId]||{}), ...(gsHardOv[gsZoneId]||{}), ...(gsStoreOv[gsZoneId]||{})};
-      if (gsData.prod) {
-        // 현재 지점에 직접 설정한 데이터가 없으면 강서점 데이터 적용
-        if (!merged[z.id] || !merged[z.id].prod) {
-          merged[z.id] = {...(merged[z.id]||{}), ...gsData};
-        }
+      // override 없으면 강서 zone 기본 prod 사용
+      if (!gsData.prod) {
+        const baseZone = gsSnap.find(gz => gz.id === gsZoneId);
+        if (baseZone?.prod) gsData.prod = baseZone.prod;
+      }
+      if (gsData.prod && (!merged[z.id] || !merged[z.id].prod)) {
+        merged[z.id] = {...(merged[z.id]||{}), ...gsData};
       }
     });
   }
@@ -3188,10 +3180,23 @@ function applyGsLinkSelect(num) {
   if (noteDisp) noteDisp.textContent = newNote ? '현재 메모: ' + newNote : '';
   
   // 연동번호가 있으면 52주 전체 강서점 상품 자동 복사
-  if (num && GS_LINK_NUM_TO_ID[num]) {
-    const gsZoneId = GS_LINK_NUM_TO_ID[num];
+  // 1) GS_LINK_NUM_TO_ID 에서 찾고, 없으면 Firebase 강서 zones(storeZonesSnapshot)에서 탐색
+  let _gsZoneId = GS_LINK_NUM_TO_ID[num];
+  if (!_gsZoneId && num) {
+    const _snap = storeZonesSnapshot['gs'] || [];
+    const _found = _snap.find(function(gz){ return gz.gsLink === num; });
+    if (_found) {
+      _gsZoneId = _found.id;
+      GS_LINK_NUM_TO_ID[num] = _gsZoneId; // 캐시
+    }
+  }
+
+  if (num && _gsZoneId) {
+    const gsZoneId = _gsZoneId;
+    // 강서점 기본 상품(prod): zones 자체에 설정된 값 (주차별 override 없어도 표시용)
+    const gsBaseZone = (storeZonesSnapshot['gs'] || []).find(function(gz){ return gz.id === gsZoneId; }) || {};
     let copyCount = 0;
-    
+
     WEEKS.forEach(function(w) {
       const wkId = w.id;
       // 강서점 데이터: storeUserOverrides > GS_OVERRIDES > WEEKS[].overrides
@@ -3199,19 +3204,20 @@ function applyGsLinkSelect(num) {
       const gsHardOv = GS_OVERRIDES[wkId] || {};
       const gsWeekOv = w.overrides || {};
       const gsData = {...(gsWeekOv[gsZoneId]||{}), ...(gsHardOv[gsZoneId]||{}), ...(gsStoreOv[gsZoneId]||{})};
-      
-      if (gsData.prod) {
-        // 현재 지점 userOverrides에 복사
-        if (!userOverrides[wkId]) userOverrides[wkId] = {};
-        userOverrides[wkId][selId] = {
-          prod: gsData.prod,
-          status: gsData.status || 'planned',
-          note: (gsData.note || '') + (gsData.note ? ' ' : '') + num + '연동'
-        };
-        copyCount++;
-      }
+
+      // 해당 주차에 override가 없으면 강서점 zone 기본 prod 사용
+      const prod = gsData.prod || gsBaseZone.prod || '';
+      if (!prod) return; // 상품 자체가 없으면 skip
+
+      if (!userOverrides[wkId]) userOverrides[wkId] = {};
+      userOverrides[wkId][selId] = {
+        prod: prod,
+        status: gsData.status || 'planned',
+        note: (gsData.note ? gsData.note + ' ' : '') + num + '연동'
+      };
+      copyCount++;
     });
-    
+
     showToast('🔗 ' + num + ' 연동 → ' + copyCount + '주 상품 자동 복사 완료!');
     render(); applyScale(); renderNav();
   } else {
