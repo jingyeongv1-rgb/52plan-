@@ -591,9 +591,6 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
   // Firebase 연결 상태 전역 노출
   const _initialLoadDone = {};
 
-  let _gsInitialLoadDone = false;
-  const _pendingRenderAfterGs = [];
-
   function listenStore(store) {
     const r = ref(db, 'plan2026/' + store);
     onValue(r, snap => {
@@ -610,35 +607,11 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
           }
           if (data.zones && Array.isArray(data.zones) && typeof storeZonesSnapshot !== 'undefined') {
             storeZonesSnapshot[store] = data.zones.map(z => Object.assign({}, z));
-          }
-
-          // ── 강서점 로드 완료: GS_LINK_NUM_TO_ID / GS_OVERRIDES 최신화 ──
-          if (store === 'gs') {
-            _gsInitialLoadDone = true;
-            if (data.zones && Array.isArray(data.zones)) {
-              data.zones.forEach(function(gz) {
-                if (gz.gsLink) {
-                  if (typeof GS_LINK_NUM_TO_ID !== 'undefined' && !GS_LINK_NUM_TO_ID[gz.gsLink])
-                    GS_LINK_NUM_TO_ID[gz.gsLink] = gz.id;
-                  if (typeof GS_LINK_LABEL !== 'undefined' && !GS_LINK_LABEL[gz.gsLink])
-                    GS_LINK_LABEL[gz.gsLink] = gz.name;
-                }
-              });
-            }
-            if (data.userOverrides && typeof GS_OVERRIDES !== 'undefined') {
-              Object.keys(data.userOverrides).forEach(function(wkId) {
-                if (!GS_OVERRIDES[wkId]) GS_OVERRIDES[wkId] = {};
-                Object.assign(GS_OVERRIDES[wkId], data.userOverrides[wkId]);
-              });
-            }
-            // 타 지점에서 gs 로드 완료 시 → 지연된 렌더 실행 + 현재 화면 갱신
-            if (typeof currentStore !== 'undefined' && currentStore !== 'gs') {
-              _pendingRenderAfterGs.forEach(function(fn){ fn(); });
-              _pendingRenderAfterGs.length = 0;
-              if (typeof render === 'function') { render(); renderNav(); }
+            // 강서점 zones 로드 완료 → 타 지점에서 접속 중이면 신규 연동번호 반영을 위해 재렌더
+            if (store === 'gs' && typeof currentStore !== 'undefined' && currentStore !== 'gs') {
+              if (typeof render === 'function') setTimeout(function(){ render(); renderNav(); }, 0);
             }
           }
-
           if (typeof currentStore !== 'undefined' && store === currentStore) {
             if (data.userOverrides) {
               Object.keys(userOverrides).forEach(k => delete userOverrides[k]);
@@ -653,14 +626,7 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
               Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
               Object.assign(seasonOverrides, data.seasonOverrides);
             }
-            // 타 지점: gs 로드 전이면 렌더를 보류, gs 로드 완료면 즉시 렌더
-            if (currentStore !== 'gs' && !_gsInitialLoadDone) {
-              _pendingRenderAfterGs.push(function() {
-                if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
-              });
-            } else {
-              if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
-            }
+            if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
           }
         }
 
@@ -693,26 +659,6 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
       if (typeof storeUserOverrides !== 'undefined' && store !== currentStore) {
         if (data.userOverrides) storeUserOverrides[store] = data.userOverrides;
         if (data.zones && Array.isArray(data.zones)) storeZonesSnapshot[store] = data.zones.map(z => Object.assign({}, z));
-        // 강서점 실시간 업데이트 → GS_LINK_NUM_TO_ID / GS_OVERRIDES 갱신 + 재렌더
-        if (store === 'gs') {
-          if (data.zones && Array.isArray(data.zones)) {
-            data.zones.forEach(function(gz) {
-              if (gz.gsLink) {
-                if (typeof GS_LINK_NUM_TO_ID !== 'undefined' && !GS_LINK_NUM_TO_ID[gz.gsLink])
-                  GS_LINK_NUM_TO_ID[gz.gsLink] = gz.id;
-                if (typeof GS_LINK_LABEL !== 'undefined' && !GS_LINK_LABEL[gz.gsLink])
-                  GS_LINK_LABEL[gz.gsLink] = gz.name;
-              }
-            });
-          }
-          if (data.userOverrides && typeof GS_OVERRIDES !== 'undefined') {
-            Object.keys(data.userOverrides).forEach(function(wkId) {
-              if (!GS_OVERRIDES[wkId]) GS_OVERRIDES[wkId] = {};
-              Object.assign(GS_OVERRIDES[wkId], data.userOverrides[wkId]);
-            });
-          }
-          if (typeof render === 'function') { render(); renderNav(); }
-        }
       }
     }, err => {
       syncUI('error', '❌ 연결 오류');
@@ -2057,25 +2003,29 @@ function getWkData(wkId){
     const gsHardOv = GS_OVERRIDES[wkId] || {};
     const gsWeekOv = w.overrides || {}; // 강서점 WEEKS 기본값
 
-    // GS_LINK_NUM_TO_ID 최신화 (gs102, gs103, gs105 등 신규 연동번호 포함)
-    const _gsSnap = (typeof storeZonesSnapshot !== 'undefined' && storeZonesSnapshot['gs']) || [];
-    _gsSnap.forEach(function(gz) {
-      if (gz.gsLink && !GS_LINK_NUM_TO_ID[gz.gsLink]) {
-        GS_LINK_NUM_TO_ID[gz.gsLink] = gz.id;
-        if (!GS_LINK_LABEL[gz.gsLink]) GS_LINK_LABEL[gz.gsLink] = gz.name;
-      }
-    });
+    // gsLink → zone ID 변환: 기존 딕셔너리에 없으면 Firebase 실시간 강서 zones에서 찾기
+    const gsSnap = storeZonesSnapshot['gs'] || [];
     
     zones.forEach(z => {
-      if (z.gsLink && GS_LINK_NUM_TO_ID[z.gsLink]) {
-        const gsZoneId = GS_LINK_NUM_TO_ID[z.gsLink];
-        // 강서점 데이터 병합 (storeUserOverrides > GS_OVERRIDES > WEEKS 기본값)
-        const gsData = {...(gsWeekOv[gsZoneId]||{}), ...(gsHardOv[gsZoneId]||{}), ...(gsStoreOv[gsZoneId]||{})};
-        if (gsData.prod) {
-          // 현재 지점에 직접 설정한 데이터가 없으면 강서점 데이터 적용
-          if (!merged[z.id] || !merged[z.id].prod) {
-            merged[z.id] = {...(merged[z.id]||{}), ...gsData};
-          }
+      if (!z.gsLink) return;
+      // 1) 기존 딕셔너리 조회
+      let gsZoneId = GS_LINK_NUM_TO_ID[z.gsLink];
+      // 2) 없으면 Firebase 강서 zones에서 직접 탐색 (gs102, gs103 등 신규 번호)
+      if (!gsZoneId) {
+        const found = gsSnap.find(gz => gz.gsLink === z.gsLink);
+        if (found) {
+          gsZoneId = found.id;
+          GS_LINK_NUM_TO_ID[z.gsLink] = gsZoneId; // 캐시
+        }
+      }
+      if (!gsZoneId) return;
+
+      // 강서점 데이터 병합 (storeUserOverrides > GS_OVERRIDES > WEEKS 기본값)
+      const gsData = {...(gsWeekOv[gsZoneId]||{}), ...(gsHardOv[gsZoneId]||{}), ...(gsStoreOv[gsZoneId]||{})};
+      if (gsData.prod) {
+        // 현재 지점에 직접 설정한 데이터가 없으면 강서점 데이터 적용
+        if (!merged[z.id] || !merged[z.id].prod) {
+          merged[z.id] = {...(merged[z.id]||{}), ...gsData};
         }
       }
     });
