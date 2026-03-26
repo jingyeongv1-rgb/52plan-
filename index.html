@@ -8,11 +8,11 @@
 <!-- Open Graph 메타 태그 (링크 공유 시 미리보기) -->
 <meta property="og:title" content="KIM'S CLUB 52주 표준화">
 <meta property="og:description" content="52-WEEK SEASONAL PLAN · LAYOUT EDITOR · AI RECOMMEND">
-<meta property="og:image" content="https://kimsvmd.github.io/52plan-/og-image.jpg">
-<meta property="og:url" content="https://kimsvmd.github.io/52plan-/">
+<meta property="og:image" content="https://jingyeongv1-rgb.github.io/52plan-/og-image.jpg">
+<meta property="og:url" content="https://jingyeongv1-rgb.github.io/52plan-/">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://kimsvmd.github.io/52plan-/og-image.jpg">
+<meta name="twitter:image" content="https://jingyeongv1-rgb.github.io/52plan-/og-image.jpg">
 
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -608,6 +608,13 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
           if (data.zones && Array.isArray(data.zones) && typeof storeZonesSnapshot !== 'undefined') {
             storeZonesSnapshot[store] = data.zones.map(z => Object.assign({}, z));
           }
+          // 강서점 데이터 로드 시 GS_OVERRIDES 갱신 (새 연동 번호 포함)
+          if (store === 'gs' && data.userOverrides && typeof GS_OVERRIDES !== 'undefined') {
+            Object.keys(data.userOverrides).forEach(function(wkId) {
+              if (!GS_OVERRIDES[wkId]) GS_OVERRIDES[wkId] = {};
+              Object.assign(GS_OVERRIDES[wkId], data.userOverrides[wkId]);
+            });
+          }
           if (typeof currentStore !== 'undefined' && store === currentStore) {
             if (data.userOverrides) {
               Object.keys(userOverrides).forEach(k => delete userOverrides[k]);
@@ -653,7 +660,16 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
         showToast('🔄 다른 사용자가 수정했습니다');
       }
       if (typeof storeUserOverrides !== 'undefined' && store !== currentStore) {
-        if (data.userOverrides) storeUserOverrides[store] = data.userOverrides;
+        if (data.userOverrides) {
+          storeUserOverrides[store] = data.userOverrides;
+          // 강서점 실시간 업데이트 시 GS_OVERRIDES도 갱신
+          if (store === 'gs' && typeof GS_OVERRIDES !== 'undefined') {
+            Object.keys(data.userOverrides).forEach(function(wkId) {
+              if (!GS_OVERRIDES[wkId]) GS_OVERRIDES[wkId] = {};
+              Object.assign(GS_OVERRIDES[wkId], data.userOverrides[wkId]);
+            });
+          }
+        }
         if (data.zones && Array.isArray(data.zones)) storeZonesSnapshot[store] = data.zones.map(z => Object.assign({}, z));
       }
     }, err => {
@@ -3176,7 +3192,9 @@ function applyGsLinkSelect(num) {
     WEEKS.forEach(function(w) {
       const wkId = w.id;
       // 강서점 데이터: storeUserOverrides > GS_OVERRIDES > WEEKS[].overrides
-      const gsStoreOv = storeUserOverrides['gs']?.[wkId] || {};
+      // 새로 추가된 연동 번호는 GS_OVERRIDES(초기 스냅샷)에 없을 수 있으므로
+      // Firebase 실시간 데이터(storeUserOverrides['gs'])를 우선 전체 확인
+      const gsStoreOv = (window.storeUserOverrides?.['gs']?.[wkId]) || (storeUserOverrides['gs']?.[wkId]) || {};
       const gsHardOv = GS_OVERRIDES[wkId] || {};
       const gsWeekOv = w.overrides || {};
       const gsData = {...(gsWeekOv[gsZoneId]||{}), ...(gsHardOv[gsZoneId]||{}), ...(gsStoreOv[gsZoneId]||{})};
