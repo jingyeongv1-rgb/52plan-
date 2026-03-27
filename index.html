@@ -99,7 +99,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 .gc-scaler{position:absolute;transform-origin:top left;transition:transform .15s;}
 .canvas-area{position:relative;}
 .gc{position:relative;background:#fff;border:2px solid #333;border-radius:6px;padding:8px;}
-.zoom-ctrl{position:sticky;top:14px;float:right;margin-right:14px;z-index:200;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.95);border:1.5px solid #e5e7eb;border-radius:10px;padding:6px 10px;box-shadow:0 2px 12px rgba(0,0,0,.12);}
+.zoom-ctrl{position:fixed;z-index:500;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.96);border:1.5px solid #e5e7eb;border-radius:10px;padding:6px 10px;box-shadow:0 2px 12px rgba(0,0,0,.15);}
 .zoom-btn{width:28px;height:28px;border:1.5px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;color:#374151;transition:all .1s;}
 .zoom-btn:hover{background:#f3f4f6;border-color:#9ca3af;}
 .zoom-pct{font-size:12px;font-weight:700;color:#374151;min-width:38px;text-align:center;font-family:monospace;}
@@ -679,6 +679,7 @@ body.viewer-mode #catFocusBar { display: flex; }
 }
 #catRegionToolbar.visible { display: flex; }
 body.viewer-mode #catRegionToolbar { display: none !important; }
+body.viewer-mode #drawToolbar { display: none !important; }
 .crt-label { font-size: 10px; font-weight: 800; color: #a5b4fc; letter-spacing: .5px; text-transform: uppercase; }
 .crt-btn {
   font-family: 'Pretendard', sans-serif;
@@ -775,7 +776,7 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
-  let _suppressNext = false;   // 자기 자신의 업데이트를 무시
+  const _suppressNext = new Set(); // 지점별 자기 업데이트 억제
 
   // 동기화 상태 UI
   function syncUI(state, msg) {
@@ -798,7 +799,7 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
   function listenStore(store) {
     const r = ref(db, 'plan2026/' + store);
     onValue(r, snap => {
-      if (_suppressNext) { _suppressNext = false; return; }
+      if (_suppressNext.has(store)) { _suppressNext.delete(store); return; }
 
       const data = snap.val();
 
@@ -822,16 +823,15 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
             }
             if (data.zones && Array.isArray(data.zones)) {
               zones.length = 0;
-              data.zones.forEach(z => zones.push(z));
+              data.zones.forEach(z => zones.push(Object.assign({}, z)));
             }
-            // seasonOverrides 복원 (운영맵 수정 데이터)
             if (data.seasonOverrides && typeof seasonOverrides !== 'undefined') {
               Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
               Object.assign(seasonOverrides, data.seasonOverrides);
             }
             // catRegions 복원
             if (data.catRegions && Array.isArray(data.catRegions)) {
-              catRegions[store] = data.catRegions.map(r => Object.assign({}, r));
+              catRegions[store] = JSON.parse(JSON.stringify(data.catRegions));
             }
             if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
             if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
@@ -853,16 +853,15 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
         }
         if (data.zones && Array.isArray(data.zones)) {
           zones.length = 0;
-          data.zones.forEach(z => zones.push(z));
+          data.zones.forEach(z => zones.push(Object.assign({}, z)));
         }
-        // seasonOverrides 복원 (다른 사용자가 운영맵 수정 시)
         if (data.seasonOverrides && typeof seasonOverrides !== 'undefined') {
           Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
           Object.assign(seasonOverrides, data.seasonOverrides);
         }
         // catRegions 복원
         if (data.catRegions && Array.isArray(data.catRegions)) {
-          catRegions[store] = data.catRegions.map(r => Object.assign({}, r));
+          catRegions[store] = JSON.parse(JSON.stringify(data.catRegions));
         }
         render(); renderPanel(); renderNav();
         if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
@@ -885,11 +884,11 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
   window._firebaseSave = async function(store) {
     syncUI('syncing', '저장 중...');
     try {
-      _suppressNext = true;
+      _suppressNext.add(store);
       var allNames = window.storeNames || storeNames;
       const payload = {
         name: allNames[store] || store,
-        zones: (store === currentStore) ? zones : (window._storeZonesSnapshot?.[store] || []),
+        zones: (store === currentStore) ? zones : (storeZonesSnapshot?.[store] || []),
         userOverrides: (store === currentStore) ? userOverrides : (storeUserOverrides[store] || {}),
         seasonOverrides: (store === currentStore) ? JSON.parse(JSON.stringify(seasonOverrides)) : {},
         catRegions: (catRegions[store] || []).map(r=>Object.assign({},r)),
@@ -898,7 +897,7 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
       await set(ref(db, 'plan2026/' + store), payload);
       syncUI('saved', '저장됨 ✓');
     } catch(e) {
-      _suppressNext = false;
+      _suppressNext.delete(store);
       syncUI('error', '저장 실패');
       console.error('Firebase save error:', e);
     }
@@ -1078,7 +1077,7 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
         if (window.currentStore === code) {
           if (window.zones) {
             window.zones.length = 0;
-            newZones.forEach(z => window.zones.push(z));
+            newZones.forEach(z => window.zones.push(Object.assign({}, z)));
           }
           if (storeData.userOverrides && window.userOverrides) {
             Object.keys(window.userOverrides).forEach(k => delete window.userOverrides[k]);
@@ -1091,7 +1090,7 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
           }
           // catRegions 복원
           if (storeData.catRegions && Array.isArray(storeData.catRegions)) {
-            catRegions[code] = storeData.catRegions.map(r=>Object.assign({},r));
+            catRegions[code] = JSON.parse(JSON.stringify(storeData.catRegions));
           }
           if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
           if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
@@ -1132,6 +1131,13 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
 
 </head>
 <body>
+<!-- 줌 컨트롤 — 도면 캔버스 우상단 고정 -->
+<div class="zoom-ctrl" id="zoomCtrl">
+  <button class="zoom-btn" onclick="zoomStep(-0.1)">−</button>
+  <span class="zoom-pct" id="zoomPct">100%</span>
+  <button class="zoom-btn" onclick="zoomStep(+0.1)">+</button>
+  <button class="zoom-btn" onclick="userZoomed=false;autoScale()" title="화면에 맞춤" style="font-size:12px;">⊡</button>
+</div>
 <!-- Firebase 동기화 상태 -->
 <div id="syncStatus" style="position:fixed;top:10px;right:14px;z-index:9998;font-family:Pretendard,sans-serif;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;background:#f3f4f6;color:#6b7280"><span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:currentColor"></span><span id="syncMsg">연결 중...</span></div>
 <!-- 잠금 오버레이 -->
@@ -1422,12 +1428,6 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
     <div class="gc-scaler" id="gcScaler">
     <div class="gc" id="gc">
     </div>
-    </div>
-    <div class="zoom-ctrl">
-      <button class="zoom-btn" onclick="zoomStep(-0.1)">−</button>
-      <span class="zoom-pct" id="zoomPct">100%</span>
-      <button class="zoom-btn" onclick="zoomStep(+0.1)">+</button>
-      <button class="zoom-btn" onclick="userZoomed=false;autoScale()" title="화면에 맞춤" style="font-size:12px;">⊡</button>
     </div>
   </div>
   <!-- RIGHT PANEL -->
@@ -2664,6 +2664,10 @@ function render(){
   // 픽셀 드래그 방식 — drop-cell 그리드 불필요
 
   const wkOvr = getWkData(getCurWkId());
+  // 카테고리 포커스 ID 세트 — 루프 전 한 번만 계산
+  const _catFocusIds = (typeof activeCatFocus !== 'undefined' && activeCatFocus !== 'all' && typeof _getZoneIdsForCat === 'function')
+    ? _getZoneIdsForCat(activeCatFocus)
+    : null;
 
   zones.forEach(z=>{
     const el=document.createElement('div');
@@ -2675,6 +2679,11 @@ function render(){
     const prevProd = normProd(prevWkOvr[z.id]?.prod ?? z.prod ?? '');
     const isChanged = curWkIdx > 0 && curProd !== prevProd && !z.name.includes('로컬');
     el.className='zb'+(z.id===selId?' sel':multiSelIds.has(z.id)?' multi-sel':'')+(editMode?'':' view')+(isChanged?' variable':'');
+    // 카테고리 포커스 — DOM 생성 시점에 바로 적용해서 깜빡임 방지
+    if(_catFocusIds !== null){
+      if(_catFocusIds.has(z.id)) el.classList.add('cat-highlighted');
+      else el.classList.add('cat-dimmed');
+    }
     if(z.color==='ent') el.classList.add('ent-block');
     const col=COLORS.find(c=>c.key===z.color);
     if(col){el.style.borderColor=col.bc;_setZbBg(el,col.bg,getCatColor(z));}
@@ -2865,6 +2874,7 @@ function applyScale(){
   document.getElementById('zoomPct').textContent = Math.round(curScale*100)+'%';
   const b = document.getElementById('canvasRotBadge');
   if(b) b.textContent = rot + '°';
+  if(typeof positionZoomCtrl === 'function') positionZoomCtrl();
 }
 
 function zoomStep(delta){
@@ -2872,6 +2882,19 @@ function zoomStep(delta){
   curScale = Math.min(Math.max(curScale + delta, 0.2), 2.0);
   applyScale();
 }
+
+// ── 줌 컨트롤 위치: canvasArea 우상단에 고정 ──
+function positionZoomCtrl(){
+  const area = document.getElementById('canvasArea');
+  const ctrl = document.getElementById('zoomCtrl');
+  if(!area || !ctrl) return;
+  const r = area.getBoundingClientRect();
+  ctrl.style.top  = (r.top  + 12) + 'px';
+  ctrl.style.left = (r.right - ctrl.offsetWidth - 12) + 'px';
+}
+window.addEventListener('resize', positionZoomCtrl);
+// 초기 배치 + planView 전환 시 재배치
+document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(positionZoomCtrl, 100); });
 
 // 마우스 휠 줌
 document.getElementById('canvasArea')?.addEventListener('wheel', e=>{
@@ -4882,6 +4905,11 @@ function tryLogin(){
     document.getElementById('modeTag').textContent='편집 모드';
     document.getElementById('modeTag').className='badge b-edit';
     document.getElementById('toolbar').style.display='flex';
+    // 관리자: 요약 패널 숨김
+    const _sw = document.getElementById('wkSummaryWrap');
+    const _sh = document.getElementById('summaryResizeHandle');
+    if(_sw) _sw.style.display='none';
+    if(_sh) _sh.style.display='none';
     showToast('관리자 로그인');
   } else {
     document.getElementById('lockErr').textContent='비밀번호가 올바르지 않습니다';
@@ -4906,9 +4934,15 @@ function enterViewer(){
   document.getElementById('modeTag').textContent='열람 모드';
   document.getElementById('modeTag').className='badge b-view';
   document.getElementById('toolbar').style.display='none';
+  document.getElementById('drawToolbar').classList.add('hidden');
   const firstMo = Math.min(...pub); // 0-based
   const firstWk = WEEKS.findIndex(w => w.mo === firstMo);
   if(firstWk>=0){ curWkIdx=firstWk; curMonthIdx=WEEKS[firstWk].mo; }
+  // 열람자: 요약 패널 표시
+  const _sw2 = document.getElementById('wkSummaryWrap');
+  const _sh2 = document.getElementById('summaryResizeHandle');
+  if(_sw2) _sw2.style.display='flex';
+  if(_sh2) _sh2.style.display='flex';
   renderNav(); render();
   showToast('열람 모드');
 }
@@ -4920,9 +4954,15 @@ function backToHome(){
   document.getElementById('modeTag').textContent='열람 모드';
   document.getElementById('modeTag').className='badge b-view';
   document.getElementById('toolbar').style.display='none';
+  document.getElementById('drawToolbar').classList.add('hidden');
   document.getElementById('adminMonthBtn').style.display='none';
   document.getElementById('adminLogoutBtn').style.display='none';
   document.getElementById('backToHomeBtn').style.display='none';
+  // 처음으로: 요약 패널 숨김
+  const _sw3 = document.getElementById('wkSummaryWrap');
+  const _sh3 = document.getElementById('summaryResizeHandle');
+  if(_sw3) _sw3.style.display='none';
+  if(_sh3) _sh3.style.display='none';
   document.getElementById('lockOverlay').style.display='flex';
   document.getElementById('pwInput').value='';
   document.getElementById('lockErr').textContent='';
@@ -4980,10 +5020,12 @@ function toggleMode(){
   document.getElementById('modeTag').textContent=editMode?'편집 모드':'열람 모드';
   document.getElementById('modeTag').className='badge '+(editMode?'b-edit':'b-view');
   document.getElementById('toolbar').style.display=editMode?'flex':'none';
+  if(!editMode) document.getElementById('drawToolbar').classList.add('hidden');
   const wkWrap = document.getElementById('wkSummaryWrap');
-  if(wkWrap) wkWrap.style.display = editMode ? 'none' : 'flex';
   const resizeH = document.getElementById('summaryResizeHandle');
-  if(resizeH) resizeH.style.display = editMode ? 'none' : 'flex';
+  // 관리자는 편집/보기 모드 모두 요약 패널 숨김 (열람자 전용)
+  if(wkWrap) wkWrap.style.display = 'none';
+  if(resizeH) resizeH.style.display = 'none';
   render();
   // 열람 모드 진입 시 카테고리 포커스 초기화
   if(!editMode){
@@ -5264,7 +5306,7 @@ function applyPendingJson() {
     const rawCr = (data && data.catRegions) ||
                   (data && data.stores && data.stores[window.currentStore||'gs'] && data.stores[window.currentStore||'gs'].catRegions);
     if(rawCr && Array.isArray(rawCr)){
-      catRegions[currentStore] = rawCr.map(r=>Object.assign({},r));
+      catRegions[currentStore] = JSON.parse(JSON.stringify(rawCr));
     }
     if (typeof window._firebaseSave === 'function') window._firebaseSave(currentStore);
     selId = null;
@@ -5280,7 +5322,7 @@ function applyPendingJson() {
         if (window.storeZonesSnapshot) window.storeZonesSnapshot[code] = sd.zones.map(z => Object.assign({}, z));
         if (window.storeUserOverrides) window.storeUserOverrides[code] = sd.userOverrides || {};
         // catRegions 복원
-        if(sd.catRegions && Array.isArray(sd.catRegions)) catRegions[code] = sd.catRegions.map(r=>Object.assign({},r));
+        if(sd.catRegions && Array.isArray(sd.catRegions)) catRegions[code] = JSON.parse(JSON.stringify(sd.catRegions));
         // 현재 지점이면 seasonOverrides도 복원
         if (code === currentStore && sd.seasonOverrides && typeof seasonOverrides !== 'undefined') {
           Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
@@ -6685,11 +6727,16 @@ function switchView(view) {
     omapWrap.style.display = 'none';
     tabPlan.style.cssText  = BASE + ON;
     tabOmap.style.cssText  = BASE + OFF;
+    const zc = document.getElementById('zoomCtrl');
+    if(zc) zc.style.display = 'flex';
+    setTimeout(positionZoomCtrl, 50);
   } else {
     planView.style.display = 'none';
     omapWrap.style.display = 'flex';
     tabPlan.style.cssText  = BASE + OFF;
     tabOmap.style.cssText  = BASE.replace('3a8c3a','e8c840') + 'border-bottom:3px solid #e8c840;color:#e8c840;';
+    const zc = document.getElementById('zoomCtrl');
+    if(zc) zc.style.display = 'none';
     if (!omapLoaded) {
       omapLoaded = true;
       renderOmap(); // renderOmap 내부에서 스크롤 처리
@@ -6849,9 +6896,12 @@ function _applyCatFocusPreview(cat){
   });
 }
 
-function _applyCatFocus(cat){
+function _applyCatFocus(cat, silent){
   const ids = _getZoneIdsForCat(cat);
-  if(!ids.size){ showToast('이 카테고리에 지정된 구역이 없습니다'); return; }
+  if(!ids.size){
+    if(!silent) showToast('이 카테고리에 지정된 구역이 없습니다');
+    return;
+  }
 
   // [1] dim 처리
   const def = getCatDef(cat);
@@ -6864,8 +6914,8 @@ function _applyCatFocus(cat){
     }
   });
 
-  // [2] pan 이동: zoom 변경 없이 해당 카테고리 영역 중심으로 scrollIntoView
-  _panToCatCenter(ids);
+  // [2] pan 이동: zoom 변경 없이 해당 카테고리 영역 중심으로 scrollIntoView (처음 선택 시만)
+  if(!silent) _panToCatCenter(ids);
 }
 
 function _panToCatCenter(zoneIds){
