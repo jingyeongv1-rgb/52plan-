@@ -620,6 +620,137 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
 .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .sync-dot.pulse { animation: syncpulse 1s infinite; }
 @keyframes syncpulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ═══════════════════════════════════════
+   카테고리 확대보기 시스템
+═══════════════════════════════════════ */
+
+/* 열람자 모드: 카테고리 선택 바 */
+#catFocusBar {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: #0f172a;
+  border-bottom: 2px solid #1e40af;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  z-index: 250;
+}
+body.viewer-mode #catFocusBar { display: flex; }
+.cf-label { font-size: 10px; font-weight: 800; color: #64748b; letter-spacing: .6px; text-transform: uppercase; margin-right: 4px; white-space: nowrap; }
+.cf-btn {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 11px; font-weight: 700;
+  padding: 5px 13px;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all .18s;
+  white-space: nowrap;
+}
+.cf-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.35); }
+.cf-btn.active { box-shadow: 0 0 0 3px rgba(255,255,255,.25); transform: scale(1.06); }
+.cf-all { background: #334155; color: #e2e8f0; border-color: #475569; }
+.cf-all.active, .cf-all:hover { background: #e2e8f0; color: #0f172a; }
+
+/* dim 오버레이 */
+#catDimOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 80;
+  transition: opacity .35s ease;
+  opacity: 0;
+}
+#catDimOverlay.active { opacity: 1; }
+
+/* 관리자: 카테고리 영역 박스 편집 툴바 */
+#catRegionToolbar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  border-bottom: 2px solid #6366f1;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  z-index: 160;
+}
+#catRegionToolbar.visible { display: flex; }
+body.viewer-mode #catRegionToolbar { display: none !important; }
+.crt-label { font-size: 10px; font-weight: 800; color: #a5b4fc; letter-spacing: .5px; text-transform: uppercase; }
+.crt-btn {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 11px; font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 6px;
+  border: 1.5px solid #6366f1;
+  cursor: pointer;
+  background: rgba(99,102,241,.15);
+  color: #c7d2fe;
+  transition: all .15s;
+}
+.crt-btn:hover { background: #6366f1; color: #fff; }
+.crt-btn.active { background: #4f46e5; color: #fff; border-color: #a5b4fc; }
+.crt-sep { width: 1px; height: 20px; background: #4338ca; }
+
+/* 카테고리 영역 박스 (도면 위) — zone 선택 방식에서는 표시 안 함 */
+.cat-region {
+  position: absolute;
+  border: 2px solid;
+  border-radius: 4px;
+  z-index: 70;
+  pointer-events: none;
+  box-sizing: border-box;
+  transition: opacity .2s;
+  display: none; /* zone-group 방식: rect 박스 미사용 */
+}
+
+/* zone 선택 모드: 구역 블록 클릭 가능, 선택 가능 */
+body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
+.zb.crt-selected {
+  box-shadow: 0 0 0 3px #6366f1, 0 0 14px rgba(99,102,241,.5) !important;
+  z-index: 51 !important;
+  transition: box-shadow .12s;
+}
+.zb.crt-selected::after {
+  content: '✓';
+  position: absolute;
+  top: 2px; right: 4px;
+  font-size: 11px; font-weight: 900;
+  color: #6366f1;
+  pointer-events: none;
+  z-index: 999;
+}
+/* zone 카테고리 컬러 테두리 (viewer 모드) */
+.zb.cat-zone-border { border-width: 3px !important; }
+
+/* dim 처리 */
+.zb.cat-dimmed {
+  opacity: .22 !important;
+  filter: grayscale(60%) !important;
+  transition: opacity .3s ease, filter .3s ease;
+}
+.zb.cat-highlighted {
+  opacity: 1 !important;
+  filter: none !important;
+  transition: opacity .3s ease, filter .3s ease;
+}
+
+/* 확대 포커스 모드: 선택 안 된 구역 dim */
+
+/* 카테고리 컬러 팔레트 */
+.crt-color-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform .1s;
+  flex-shrink: 0;
+}
+.crt-color-dot:hover, .crt-color-dot.sel { transform: scale(1.3); border-color: #fff; }
+
 </style>
 
 <!-- Firebase SDK -->
@@ -698,7 +829,12 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
               Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
               Object.assign(seasonOverrides, data.seasonOverrides);
             }
+            // catRegions 복원
+            if (data.catRegions && Array.isArray(data.catRegions)) {
+              catRegions[store] = data.catRegions.map(r => Object.assign({}, r));
+            }
             if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
+            if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
           }
         }
 
@@ -724,7 +860,12 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
           Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
           Object.assign(seasonOverrides, data.seasonOverrides);
         }
+        // catRegions 복원
+        if (data.catRegions && Array.isArray(data.catRegions)) {
+          catRegions[store] = data.catRegions.map(r => Object.assign({}, r));
+        }
         render(); renderPanel(); renderNav();
+        if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
         syncUI('saved', '✅ 동기화됨');
         showToast('🔄 다른 사용자가 수정했습니다');
       }
@@ -751,6 +892,7 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
         zones: (store === currentStore) ? zones : (window._storeZonesSnapshot?.[store] || []),
         userOverrides: (store === currentStore) ? userOverrides : (storeUserOverrides[store] || {}),
         seasonOverrides: (store === currentStore) ? JSON.parse(JSON.stringify(seasonOverrides)) : {},
+        catRegions: (catRegions[store] || []).map(r=>Object.assign({},r)),
         savedAt: Date.now()
       };
       await set(ref(db, 'plan2026/' + store), payload);
@@ -947,7 +1089,12 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
             Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
             Object.assign(seasonOverrides, storeData.seasonOverrides);
           }
+          // catRegions 복원
+          if (storeData.catRegions && Array.isArray(storeData.catRegions)) {
+            catRegions[code] = storeData.catRegions.map(r=>Object.assign({},r));
+          }
           if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
+          if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
           if (typeof showToast === 'function') showToast('🔄 데이터 동기화됨');
         }
 
@@ -1055,8 +1202,9 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
       <button class="btn btn-gh" onclick="confirmDeleteStore()" title="현재 지점 삭제" style="color:#dc2626;">🗑</button>
     </div><span class="badge b-edit" id="modeTag">편집</span>
     <button class="btn btn-gh" onclick="toggleMode()">보기</button>
-    <button class="btn btn-gh" onclick="openAddModal()">＋ 구역</button>
-    <button class="btn btn-g" onclick="toggleDrawToolbar()" id="drawModeBtn" style="background:#1e40af;">✏️ 그리기</button>
+    <button class="btn btn-gh admin-only" onclick="openAddModal()">＋ 구역</button>
+    <button class="btn btn-g admin-only" onclick="toggleDrawToolbar()" id="drawModeBtn" style="background:#1e40af;">✏️ 그리기</button>
+    <button class="btn btn-g admin-only" onclick="toggleCatRegionToolbar()" id="catRegionBtn" style="background:#4f46e5;">📦 카테고리영역</button>
     <button class="btn btn-gh" onclick="resetLayout()">↺ 초기화</button>
     <button class="btn btn-gh" onclick="document.getElementById('jsonLoadInput').click()">JSON 불러오기</button>
     <input type="file" id="jsonLoadInput" accept=".json" style="display:none" onchange="loadJSON(this)"/>
@@ -1126,6 +1274,30 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
 </div>
 
 <!-- 빠른 그리기 도구 -->
+<!-- 카테고리 확대보기 바 (열람자 모드) -->
+<div id="catFocusBar">
+  <span class="cf-label">📍 카테고리 이동</span>
+  <button class="cf-btn cf-all active" id="cfBtn_all" onclick="catFocusSelect('all')">전체보기</button>
+  <!-- 동적으로 채워짐 -->
+  <span id="cfDynamicBtns" style="display:contents;"></span>
+</div>
+
+<!-- 카테고리 영역 편집 툴바 (관리자 모드) — zone 블록 선택 방식 -->
+<div id="catRegionToolbar">
+  <span class="crt-label">📦 카테고리 영역 지정</span>
+  <div class="crt-sep"></div>
+  <span class="crt-label" style="color:#94a3b8;">카테고리:</span>
+  <div id="crtCatBtns" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+  <div class="crt-sep"></div>
+  <button class="crt-btn active" id="crtSelectBtn" onclick="toggleCatZoneSelect()" title="구역 블록을 클릭하여 카테고리 지정">🖱 구역 선택 ON</button>
+  <button class="crt-btn" onclick="clearSelectedZones()" title="현재 선택 초기화">↺ 선택 초기화</button>
+  <button class="crt-btn" onclick="applyZoneCategory()" title="선택한 구역에 카테고리 적용" style="background:#4f46e5;color:#fff;border-color:#a5b4fc;">✓ 적용</button>
+  <button class="crt-btn" onclick="clearCatForZones()" title="선택 구역의 카테고리 해제" style="background:#7f1d1d;color:#fca5a5;border-color:#ef4444;">✕ 해제</button>
+  <button class="crt-btn" onclick="clearAllCatRegions()">🗑 전체삭제</button>
+  <div class="crt-sep"></div>
+  <span style="font-size:10px;color:#94a3b8;" id="crtHint">🖱 구역 블록을 클릭하여 다중 선택 후 [✓ 적용] 클릭</span>
+</div>
+
 <div class="draw-toolbar hidden" id="drawToolbar">
   <div class="draw-section">
     <span class="draw-label">📦 빠른 추가</span>
@@ -1245,8 +1417,11 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
 <div class="main-wrap" id="planView">
   <!-- 도면 캔버스 영역 -->
   <div class="canvas-area" id="canvasArea">
+    <!-- 카테고리 dim 오버레이 -->
+    <div id="catDimOverlay"></div>
     <div class="gc-scaler" id="gcScaler">
-    <div class="gc" id="gc"></div>
+    <div class="gc" id="gc">
+    </div>
     </div>
     <div class="zoom-ctrl">
       <button class="zoom-btn" onclick="zoomStep(-0.1)">−</button>
@@ -2119,7 +2294,10 @@ function getSeasonBadge(zoneId, prod){
 
 // 카테고리 삼각형 태그
 // 카테고리 위치: 'tl'(좌상) 'tr'(우상) 'bl'(좌하) 'br'(우하)
-let catTagPos = 'tl';
+let catTagPos = 'tl'; // 현재 지점 캐시 (편의용)
+const storeCatTagPos = {}; // 지점별 카테고리 위치
+function getCatTagPos(){ return storeCatTagPos[currentStore] || 'tl'; }
+function _setCatTagPos(pos){ storeCatTagPos[currentStore] = pos; catTagPos = pos; }
 
 function getCatColor(z){
   const CAT_COLORS = {fruit:'#f97316',veg:'#16a34a',fish:'#2563eb',meat:'#dc2626',food:'#6b7280',none:null};
@@ -2156,7 +2334,7 @@ function _setZbBg(el, baseBg, catColor){
     bl: `linear-gradient(45deg,  ${catColor} ${S}px, transparent ${S}px)`,
     br: `linear-gradient(315deg, ${catColor} ${S}px, transparent ${S}px)`,
   };
-  const grad = gradMap[catTagPos] || gradMap.tl;
+  const grad = gradMap[getCatTagPos()] || gradMap.tl;
   el.style.background = `${grad}, ${baseBg}`;
 }
 
@@ -2613,7 +2791,12 @@ function render(){
   requestAnimationFrame(autoScale);
   // 바운딩박스 + 핸들 위치 갱신
   requestAnimationFrame(updateBoundingBox);
-  if(typeof globalTextRot !== "undefined" && globalTextRot) requestAnimationFrame(_applyGlobalTextRot);
+  // 개별 textRot + globalTextRot 모두 반영
+  requestAnimationFrame(_applyGlobalTextRot);
+  // 카테고리 영역 박스 재렌더 (편집모드 or 열람모드)
+  requestAnimationFrame(()=>{
+    if(typeof _renderCatRegionBoxes === 'function') _renderCatRegionBoxes();
+  });
 }
 
 function autoScale(){
@@ -3146,7 +3329,11 @@ function selZone(id){
   selId=id; render(); applyScale(); renderPanel(); renderWkSummary(); openDetailPanel();
   requestAnimationFrame(updateBoundingBox);
   const z=zones.find(x=>x.id===id);
-  if(z) document.getElementById('tbHint').textContent=`선택: ${z.name} — ${getCurWk()?.label}`;
+  if(z){
+    document.getElementById('tbHint').textContent=`선택: ${z.name} — ${getCurWk()?.label}`;
+    const b = document.getElementById('textRotBadge');
+    if(b) b.textContent = (z.textRot || 0) + '°';
+  }
 }
 document.getElementById('gc').addEventListener('click',()=>{
   selId=null;
@@ -3157,6 +3344,9 @@ document.getElementById('gc').addEventListener('click',()=>{
   document.getElementById('rpEmp').style.display='';
   document.getElementById('rpEdit').style.display='none';
   renderWkSummary();
+  // 선택 해제 시 badge를 전체 globalTextRot로 복원
+  const b = document.getElementById('textRotBadge');
+  if(b) b.textContent = (globalTextRot || 0) + '°';
 });
 
 function renderPanel(){
@@ -4431,7 +4621,9 @@ document.addEventListener('DOMContentLoaded', function() {
   gc.addEventListener('mousedown', function(e) {
     // 드래그 선택 직후면 무시
     if (justFinishedDragSelect) return;
-    
+    // 카테고리 영역 드래그 중이면 gc 자체 드래그 선택 차단
+    if (catRegionDrawing && catRegionEditMode) return;
+
     // 그리기 모드가 아니고, 기존 구역을 클릭하지 않은 경우 = 드래그 선택
     if (!drawMode && editMode && !e.target.closest('.zb') && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       // 새로운 드래그 선택 시작 (기존 선택은 유지하다가 드래그하면 해제)
@@ -4793,6 +4985,23 @@ function toggleMode(){
   const resizeH = document.getElementById('summaryResizeHandle');
   if(resizeH) resizeH.style.display = editMode ? 'none' : 'flex';
   render();
+  // 열람 모드 진입 시 카테고리 포커스 초기화
+  if(!editMode){
+    activeCatFocus = 'all';
+    renderCatFocusBar();
+    _clearCatFocus();
+    // zone 선택 모드 해제
+    if(catZoneSelectMode){
+      catZoneSelectMode = false;
+      const gc = document.getElementById('gc');
+      if(gc) gc.classList.remove('cat-zone-select');
+    }
+  } else {
+    // 편집 모드 복귀 시 dim 해제
+    _clearCatFocus();
+    activeCatFocus = 'all';
+    if(catRegionEditMode) _renderCatZoneBorders();
+  }
 }
 
 // ── Firebase 실시간 동기화 저장 ──
@@ -4809,6 +5018,17 @@ function syncToFirebase(){
   }
 }
 
+// ── 파일명용 타임스탬프 생성 (항상 새 파일로 저장) ──
+function _makeTimestamp(){
+  var now = new Date();
+  return now.getFullYear()
+    + ('0'+(now.getMonth()+1)).slice(-2)
+    + ('0'+now.getDate()).slice(-2)
+    + '_'
+    + ('0'+now.getHours()).slice(-2)
+    + ('0'+now.getMinutes()).slice(-2);
+}
+
 function saveAll(){
   if(typeof window._firebaseSave === 'function') window._firebaseSave(currentStore);
   // 현재 지점 최신 상태 스냅샷
@@ -4821,10 +5041,9 @@ function saveAll(){
   var allData = { savedAt: new Date().toISOString(), stores: {} };
   Object.keys(allMap).forEach(function(store){ allData.stores[store] = buildStoreData(store); });
 
-  var now = new Date();
-  var ymd = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
+  var ts = _makeTimestamp();
   var storeCount = Object.keys(allMap).length;
-  downloadJSON(allData, '킴스클럽_2026도면_전점포_' + ymd + '.json');
+  downloadJSON(allData, '킴스클럽_2026도면_전점포_' + ts + '.json');
   showToast('✅ ' + storeCount + '개 점포 JSON 저장 완료!');
 }
 
@@ -4850,13 +5069,12 @@ function saveStore(store) {
     console.warn('[saveStore] zones 스냅샷 없음:', store, '- storeMap.zones() 사용');
   }
 
-  var now = new Date();
-  var ymd = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
+  var ts = _makeTimestamp();
   var storeName = allNames[store] || store;
   var data = { savedAt: new Date().toISOString(), stores: {} };
   data.stores[store] = buildStoreData(store);
   console.log('[saveStore]', storeName, '- zones:', data.stores[store].zones.length, '개');
-  downloadJSON(data, '킴스클럽_2026도면_' + storeName + '_' + ymd + '.json');
+  downloadJSON(data, '킴스클럽_2026도면_' + storeName + '_' + ts + '.json');
   showToast('✅ ' + storeName + ' JSON 저장 완료!');
 }
 
@@ -4890,7 +5108,8 @@ function buildStoreData(store) {
     name: allNames[store] || store,
     zones: sZones,
     userOverrides: merged,
-    seasonOverrides: (store === currentStore) ? JSON.parse(JSON.stringify(seasonOverrides)) : {}
+    seasonOverrides: (store === currentStore) ? JSON.parse(JSON.stringify(seasonOverrides)) : {},
+    catRegions: (catRegions[store] || []).map(function(r){ return Object.assign({},r); })
   };
 }
 
@@ -5041,9 +5260,16 @@ function applyPendingJson() {
       Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
       Object.assign(seasonOverrides, rawSo);
     }
+    // catRegions 복원
+    const rawCr = (data && data.catRegions) ||
+                  (data && data.stores && data.stores[window.currentStore||'gs'] && data.stores[window.currentStore||'gs'].catRegions);
+    if(rawCr && Array.isArray(rawCr)){
+      catRegions[currentStore] = rawCr.map(r=>Object.assign({},r));
+    }
     if (typeof window._firebaseSave === 'function') window._firebaseSave(currentStore);
     selId = null;
     render(); renderPanel(); renderNav();
+    if(typeof renderCatFocusBar==='function') renderCatFocusBar();
     showToast('✅ JSON 불러오기 완료! ' + zones.length + '개 구역');
   } else if (data && data.stores && typeof data.stores === 'object') {
     if (typeof window._firebaseSave === 'function') {
@@ -5053,6 +5279,8 @@ function applyPendingJson() {
         if (!window.storeMap || !window.storeMap[code]) return;
         if (window.storeZonesSnapshot) window.storeZonesSnapshot[code] = sd.zones.map(z => Object.assign({}, z));
         if (window.storeUserOverrides) window.storeUserOverrides[code] = sd.userOverrides || {};
+        // catRegions 복원
+        if(sd.catRegions && Array.isArray(sd.catRegions)) catRegions[code] = sd.catRegions.map(r=>Object.assign({},r));
         // 현재 지점이면 seasonOverrides도 복원
         if (code === currentStore && sd.seasonOverrides && typeof seasonOverrides !== 'undefined') {
           Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
@@ -5553,7 +5781,8 @@ function exportCurrentStoreExcel() {
   var exportOverrides = userOverrides;
 
   const now = new Date();
-  const ymd = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
+  const ymd = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2)
+            + '_' + ('0'+now.getHours()).slice(-2) + ('0'+now.getMinutes()).slice(-2);
   const wk = WEEKS[curWkIdx];
   const wkLabel = wk ? wk.id : '';
   const currentOverrides = exportOverrides[wkLabel] || {};
@@ -5884,6 +6113,22 @@ function switchStore(store) {
   render(); applyScale(); renderPanel(); renderNav();
   const _b = document.getElementById('canvasRotBadge');
   if(_b) _b.textContent=(storeRotations[currentStore]||0)+'°';
+  // 지점별 글자 회전 badge 복원
+  const _tb = document.getElementById('textRotBadge');
+  if(_tb) _tb.textContent = getGlobalTextRot() + '°';
+  // 지점별 카테고리 위치 버튼 복원
+  const _cp = getCatTagPos();
+  ['tl','tr','bl','br'].forEach(p=>{
+    const _cb = document.getElementById('catBtn_'+p);
+    if(_cb) _cb.style.background = p===_cp?'rgba(255,255,255,.35)':'';
+  });
+  // 카테고리 포커스 초기화
+  activeCatFocus = 'all';
+  if(typeof renderCatFocusBar === 'function') renderCatFocusBar();
+  if(typeof _clearCatFocus === 'function') _clearCatFocus();
+  if(typeof _renderCatZoneBorders === 'function') _renderCatZoneBorders();
+  // zone 클릭 리스너 재등록
+  setTimeout(()=>{ if(typeof _attachCatZoneListeners==='function') _attachCatZoneListeners(); }, 100);
   showToast(s.name + ' 로드');
 }
 
@@ -5893,13 +6138,13 @@ function switchStore(store) {
 const storeRotations = {};
 
 function setCatPos(pos){
-  catTagPos = pos;
+  _setCatTagPos(pos);
   ['tl','tr','bl','br'].forEach(p=>{
     const b=document.getElementById('catBtn_'+p);
     if(b) b.style.background = p===pos?'rgba(255,255,255,.35)':'';
   });
   render();
-  showToast('카테고리 위치: '+{tl:'좌상단',tr:'우상단',bl:'좌하단',br:'우하단'}[pos]);
+  showToast('카테고리 위치: '+{tl:'좌상단',tr:'우상단',bl:'좌하단',br:'우하단'}[pos]+' (이 지점만)');
 }
 
 function canvasRotate(delta, mode){
@@ -5915,32 +6160,87 @@ function canvasRotate(delta, mode){
 }
 
 // ── 전체 글자 회전 ──────────────────────────────────────
-let globalTextRot = 0; // 현재 글자 회전 각도
+let globalTextRot = 0; // 현재 지점 캐시 (편의용)
+const storeTextRot = {}; // 지점별 전체 글자 회전
+function getGlobalTextRot(){ return storeTextRot[currentStore] || 0; }
+function _setGlobalTextRot(v){ storeTextRot[currentStore] = v; globalTextRot = v; }
 
 function rotateAllText(delta, mode){
-  globalTextRot = mode==='reset' ? 0 : ((globalTextRot + delta + 360) % 360);
-  _applyGlobalTextRot();
-  const b = document.getElementById('textRotBadge');
-  if(b) b.textContent = globalTextRot + '°';
-  showToast('글자 ' + globalTextRot + '° 회전');
+  // 선택된 구역이 있으면 해당 구역만, 없으면 현재 지점 전체 적용
+  if (selId) {
+    const z = zones.find(x => x.id === selId);
+    if (!z) return;
+    const cur = z.textRot || 0;
+    const next = mode === 'reset' ? 0 : ((cur + delta + 360) % 360);
+    if (next === 0) delete z.textRot; else z.textRot = next;
+    _applyZoneTextRot(selId);
+    const b = document.getElementById('textRotBadge');
+    if(b) b.textContent = next + '°';
+    showToast('글자 ' + next + '° 회전 (이 구역)');
+  } else {
+    // 선택 없음 → 현재 지점 전체 적용 (다른 지점 영향 없음)
+    const cur = getGlobalTextRot();
+    const next = mode==='reset' ? 0 : ((cur + delta + 360) % 360);
+    _setGlobalTextRot(next);
+    _applyGlobalTextRot();
+    const b = document.getElementById('textRotBadge');
+    if(b) b.textContent = next + '°';
+    showToast('글자 ' + next + '° 회전 (이 지점 전체)');
+  }
+}
+
+// 특정 구역 하나의 글자 회전 적용
+function _applyZoneTextRot(id){
+  const z = zones.find(x => x.id === id);
+  if (!z) return;
+  const el = document.getElementById('z-' + id);
+  if (!el) return;
+  const zi = el.querySelector('.zi');
+  if (!zi) return;
+  const deg = z.textRot || 0;
+  if(deg){
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const s = Math.min(w, h);
+    zi.style.position        = 'absolute';
+    zi.style.top             = ((h - s) / 2) + 'px';
+    zi.style.left            = ((w - s) / 2) + 'px';
+    zi.style.width           = s + 'px';
+    zi.style.height          = s + 'px';
+    zi.style.transform       = `rotate(${deg}deg)`;
+    zi.style.transformOrigin = 'center center';
+    zi.style.boxSizing       = 'border-box';
+    zi.style.overflow        = 'hidden';
+  } else {
+    zi.style.position  = '';
+    zi.style.top       = '';
+    zi.style.left      = '';
+    zi.style.width     = '';
+    zi.style.height    = '';
+    zi.style.transform = '';
+    zi.style.boxSizing = '';
+    zi.style.overflow  = '';
+  }
+  el.style.overflow = 'hidden';
 }
 
 function _applyGlobalTextRot(){
-  const deg = globalTextRot;
+  const deg = getGlobalTextRot();
   document.querySelectorAll('.zb').forEach(zb => {
+    const id = zb.id.replace('z-', '');
+    const z = zones.find(x => x.id === id);
+    // 개별 textRot가 있으면 우선, 없으면 globalTextRot 적용
+    const useDeg = (z && z.textRot != null) ? z.textRot : deg;
     const zi = zb.querySelector('.zi');
     if(!zi) return;
-    if(deg){
+    if(useDeg){
       const w = zb.offsetWidth, h = zb.offsetHeight;
-      // 90°/270° 회전 시 가로세로가 바뀌므로 zi 크기를 min(w,h) 정사각형으로
-      // → 어떤 각도로 돌려도 zb(overflow:hidden) 안에 완전히 들어옴
       const s = Math.min(w, h);
       zi.style.position        = 'absolute';
       zi.style.top             = ((h - s) / 2) + 'px';
       zi.style.left            = ((w - s) / 2) + 'px';
       zi.style.width           = s + 'px';
       zi.style.height          = s + 'px';
-      zi.style.transform       = `rotate(${deg}deg)`;
+      zi.style.transform       = `rotate(${useDeg}deg)`;
       zi.style.transformOrigin = 'center center';
       zi.style.boxSizing       = 'border-box';
       zi.style.overflow        = 'hidden';
@@ -6416,6 +6716,402 @@ function switchView(view) {
     }
   }
 }
+
+
+
+/* ═══════════════════════════════════════════════════════
+   카테고리 영역 지정 / 이동 시스템 (v2 — zone-group 방식)
+   - 구역 블록(.zb)을 직접 클릭해 다중 선택 → 카테고리 지정
+   - 열람자: zoom 없이 pan(scroll) 이동 + dim 처리
+═══════════════════════════════════════════════════════ */
+
+// ── 데이터 ──────────────────────────────────────────
+// catRegions: { [storeCode]: [ {id, category, zoneIds:[...]} ] }
+const catRegions = {};
+
+const CAT_DEF = [
+  { key: '농산', label: '🥬 농산', color: '#16a34a' },
+  { key: '수산', label: '🐟 수산', color: '#2563eb' },
+  { key: '축산', label: '🥩 축산', color: '#dc2626' },
+  { key: '공산', label: '🛒 공산',  color: '#d97706' },
+  { key: '일용',  label: '🧴 일용', color: '#7c3aed' },
+  { key: '델리',  label: '🍱 델리', color: '#0891b2' },
+];
+
+function getCatDef(key){ return CAT_DEF.find(c=>c.key===key) || {key, label:key, color:'#6b7280'}; }
+
+function getStoreRegions(){
+  if(!catRegions[currentStore]) catRegions[currentStore]=[];
+  return catRegions[currentStore];
+}
+
+// ── 관리자: 영역 편집 상태 ──────────────────────────
+let catRegionEditMode  = false;
+let catZoneSelectMode  = false;   // zone 블록 클릭 선택 ON/OFF
+let activeCrtCat       = CAT_DEF[0].key;
+let _selectedZoneIds   = new Set(); // 현재 선택된 zone IDs
+
+// ── 열람자 모드: 카테고리 버튼 렌더 ────────────────
+let activeCatFocus = 'all';
+
+function renderCatFocusBar(){
+  const regs = getStoreRegions();
+  const usedCats = [...new Set(regs.map(r=>r.category))];
+  const wrap = document.getElementById('cfDynamicBtns');
+  if(!wrap) return;
+
+  wrap.innerHTML = usedCats.map(cat=>{
+    const def = getCatDef(cat);
+    const isActive = activeCatFocus === cat;
+    return `<button class="cf-btn${isActive?' active':''}"
+      id="cfBtn_${cat}"
+      style="background:${isActive ? def.color : 'rgba(255,255,255,.07)'};
+             color:${isActive ? '#fff' : '#cbd5e1'};
+             border-color:${def.color};"
+      onmouseover="catFocusHover('${cat}')"
+      onmouseout="catFocusHoverEnd()"
+      onclick="catFocusSelect('${cat}')">${def.label}</button>`;
+  }).join('');
+
+  const allBtn = document.getElementById('cfBtn_all');
+  if(allBtn){
+    allBtn.className = 'cf-btn cf-all' + (activeCatFocus==='all' ? ' active' : '');
+  }
+}
+
+// ── 카테고리 포커스 선택 ────────────────────────────
+function catFocusSelect(cat){
+  activeCatFocus = cat;
+  renderCatFocusBar();
+  if(cat === 'all'){
+    _clearCatFocus();
+  } else {
+    _applyCatFocus(cat);
+  }
+}
+
+function catFocusHover(cat){
+  if(activeCatFocus !== 'all') return;
+  _applyCatFocusPreview(cat);
+}
+function catFocusHoverEnd(){
+  if(activeCatFocus !== 'all') return;
+  _clearCatFocus();
+}
+
+function _clearCatFocus(){
+  // dim 해제
+  document.querySelectorAll('.zb').forEach(el=>{
+    el.classList.remove('cat-dimmed','cat-highlighted','cat-zone-border');
+    el.style.borderColor = '';
+    el.style.borderWidth = '';
+  });
+  const ov = document.getElementById('catDimOverlay');
+  if(ov){ ov.style.background=''; ov.classList.remove('active'); }
+  // 뷰어에서 전체보기 → 자동스케일 복원 (zoom 없음)
+  if(document.body.classList.contains('viewer-mode')){
+    userZoomed = false;
+    autoScale();
+  }
+}
+
+function _getZoneIdsForCat(cat){
+  const regs = getStoreRegions().filter(r=>r.category===cat);
+  const ids = new Set();
+  regs.forEach(r=>{
+    if(r.zoneIds && Array.isArray(r.zoneIds)){
+      r.zoneIds.forEach(id=>ids.add(id));
+    } else if(r.x !== undefined){
+      // 구형 rect 방식 호환: 겹치는 zone 탐색
+      zones.forEach(z=>{
+        const zx = px(z.col), zy = py(z.row);
+        const zw = z.cols*CELL+(z.cols-1)*GAP;
+        const zh = z.rows*ROW+(z.rows-1)*GAP;
+        if(zx < r.x+r.width && zx+zw > r.x && zy < r.y+r.height && zy+zh > r.y){
+          ids.add(z.id);
+        }
+      });
+    }
+  });
+  return ids;
+}
+
+function _applyCatFocusPreview(cat){
+  const ids = _getZoneIdsForCat(cat);
+  if(!ids.size) return;
+  document.querySelectorAll('.zb').forEach(el=>{
+    const zid = el.id.replace('z-','');
+    if(ids.has(zid)){
+      el.classList.remove('cat-dimmed'); el.classList.add('cat-highlighted');
+    } else {
+      el.classList.add('cat-dimmed'); el.classList.remove('cat-highlighted');
+    }
+  });
+}
+
+function _applyCatFocus(cat){
+  const ids = _getZoneIdsForCat(cat);
+  if(!ids.size){ showToast('이 카테고리에 지정된 구역이 없습니다'); return; }
+
+  // [1] dim 처리
+  const def = getCatDef(cat);
+  document.querySelectorAll('.zb').forEach(el=>{
+    const zid = el.id.replace('z-','');
+    if(ids.has(zid)){
+      el.classList.remove('cat-dimmed'); el.classList.add('cat-highlighted');
+    } else {
+      el.classList.add('cat-dimmed'); el.classList.remove('cat-highlighted');
+    }
+  });
+
+  // [2] pan 이동: zoom 변경 없이 해당 카테고리 영역 중심으로 scrollIntoView
+  _panToCatCenter(ids);
+}
+
+function _panToCatCenter(zoneIds){
+  const area = document.getElementById('canvasArea');
+  const gcEl  = document.getElementById('gc');
+  if(!area || !gcEl) return;
+
+  // 선택된 zone들의 gc 내부 bbox 계산
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  zones.forEach(z=>{
+    if(!zoneIds.has(z.id)) return;
+    const zx = px(z.col), zy = py(z.row);
+    const zw = z.cols*CELL+(z.cols-1)*GAP;
+    const zh = z.rows*ROW+(z.rows-1)*GAP;
+    minX=Math.min(minX,zx); minY=Math.min(minY,zy);
+    maxX=Math.max(maxX,zx+zw); maxY=Math.max(maxY,zy+zh);
+  });
+  if(minX===Infinity) return;
+
+  // gc 내부 중심점 (gc 좌표계)
+  const gcCx = (minX+maxX)/2;
+  const gcCy = (minY+maxY)/2;
+
+  // gc 요소의 현재 화면 위치 (getBoundingClientRect)
+  const areaRect = area.getBoundingClientRect();
+  const gcRect   = gcEl.getBoundingClientRect();
+
+  // gc 내부 좌표 → 화면 좌표 변환 (rotation 포함)
+  const rot = (storeRotations[currentStore]||0)*Math.PI/180;
+  const cos = Math.cos(rot), sin = Math.sin(rot);
+  const dx = gcCx - gcEl.offsetWidth/2;
+  const dy = gcCy - gcEl.offsetHeight/2;
+  const rx = dx*cos - dy*sin;
+  const ry = dx*sin + dy*cos;
+
+  // gc 화면 중심 → 영역 중심의 화면 좌표
+  const screenCx = gcRect.left + gcRect.width/2  + rx*curScale;
+  const screenCy = gcRect.top  + gcRect.height/2 + ry*curScale;
+
+  // area 내부 스크롤 좌표로 변환
+  const targetScrollX = area.scrollLeft + (screenCx - areaRect.left) - area.clientWidth/2;
+  const targetScrollY = area.scrollTop  + (screenCy - areaRect.top)  - area.clientHeight/2;
+
+  area.scrollTo({ left: targetScrollX, top: targetScrollY, behavior: 'smooth' });
+}
+
+// ── 관리자: 카테고리 영역 편집 툴바 ────────────────
+function toggleCatRegionToolbar(){
+  const tb = document.getElementById('catRegionToolbar');
+  const btn = document.getElementById('catRegionBtn');
+  catRegionEditMode = !catRegionEditMode;
+  if(catRegionEditMode){
+    tb.classList.add('visible');
+    btn.style.background = '#4338ca';
+    _renderCrtCatBtns();
+    _renderCatZoneBorders();
+    // 자동으로 zone 선택 모드 ON
+    catZoneSelectMode = true;
+    const selBtn = document.getElementById('crtSelectBtn');
+    if(selBtn){ selBtn.classList.add('active'); selBtn.textContent = '🖱 구역 선택 ON'; }
+    const gc = document.getElementById('gc');
+    if(gc) gc.classList.add('cat-zone-select');
+    document.getElementById('crtHint').textContent = '🖱 구역 블록을 클릭하여 다중 선택 후 [✓ 적용] 클릭';
+  } else {
+    tb.classList.remove('visible');
+    btn.style.background = '#4f46e5';
+    catZoneSelectMode = false;
+    _selectedZoneIds.clear();
+    const gc = document.getElementById('gc');
+    if(gc) gc.classList.remove('cat-zone-select');
+    document.querySelectorAll('.zb.crt-selected').forEach(el=>el.classList.remove('crt-selected'));
+    _renderCatZoneBorders();
+  }
+}
+
+function _renderCrtCatBtns(){
+  const wrap = document.getElementById('crtCatBtns');
+  if(!wrap) return;
+  wrap.innerHTML = CAT_DEF.map(c=>`
+    <button class="crt-btn${c.key===activeCrtCat?' active':''}"
+      style="border-color:${c.color};${c.key===activeCrtCat?'background:'+c.color+';color:#fff;':''}"
+      onclick="selectCrtCat('${c.key}')">${c.label}</button>
+  `).join('');
+}
+
+function selectCrtCat(key){
+  activeCrtCat = key;
+  _renderCrtCatBtns();
+}
+
+function toggleCatZoneSelect(){
+  catZoneSelectMode = !catZoneSelectMode;
+  const btn = document.getElementById('crtSelectBtn');
+  if(btn){
+    btn.classList.toggle('active', catZoneSelectMode);
+    btn.textContent = catZoneSelectMode ? '🖱 구역 선택 ON' : '🖱 구역 선택 OFF';
+  }
+  const gc = document.getElementById('gc');
+  if(gc) gc.classList.toggle('cat-zone-select', catZoneSelectMode);
+  document.getElementById('crtHint').textContent =
+    catZoneSelectMode ? '🖱 구역 블록을 클릭하여 다중 선택 후 [✓ 적용] 클릭' : '▶ 구역 선택 OFF';
+}
+
+// 선택된 zone들에 카테고리 적용
+function applyZoneCategory(){
+  if(!_selectedZoneIds.size){
+    showToast('선택된 구역이 없습니다');
+    return;
+  }
+  const regs = getStoreRegions();
+  const def = getCatDef(activeCrtCat);
+
+  // 기존 같은 카테고리 그룹이 있으면 zoneIds에 추가, 없으면 새로 생성
+  let existing = regs.find(r=>r.category===activeCrtCat);
+  if(!existing){
+    existing = { id:'cg_'+Date.now(), category:activeCrtCat, zoneIds:[] };
+    regs.push(existing);
+  }
+  _selectedZoneIds.forEach(id=>{
+    // 다른 카테고리에서 같은 zone이 있으면 제거 (카테고리 중복 방지)
+    regs.forEach(r=>{
+      if(r.category !== activeCrtCat && r.zoneIds){
+        const idx = r.zoneIds.indexOf(id);
+        if(idx>=0) r.zoneIds.splice(idx,1);
+      }
+    });
+    if(!existing.zoneIds.includes(id)) existing.zoneIds.push(id);
+  });
+  // 빈 그룹 정리
+  const filtered = regs.filter(r=>!r.zoneIds || r.zoneIds.length>0);
+  catRegions[currentStore] = filtered;
+
+  clearSelectedZones();
+  _renderCatZoneBorders();
+  renderCatFocusBar();
+  showToast(def.label + ' 카테고리 적용 ✓ (' + _selectedZoneIds.size + '개 구역)');
+  _selectedZoneIds.clear();
+  if(typeof window._firebaseSave==='function') window._firebaseSave(currentStore);
+}
+
+// 선택된 zone들의 카테고리 해제
+function clearCatForZones(){
+  if(!_selectedZoneIds.size){ showToast('선택된 구역이 없습니다'); return; }
+  const regs = getStoreRegions();
+  regs.forEach(r=>{
+    if(r.zoneIds){
+      r.zoneIds = r.zoneIds.filter(id=>!_selectedZoneIds.has(id));
+    }
+  });
+  catRegions[currentStore] = regs.filter(r=>!r.zoneIds||r.zoneIds.length>0);
+  clearSelectedZones();
+  _renderCatZoneBorders();
+  renderCatFocusBar();
+  showToast('카테고리 해제 완료');
+  if(typeof window._firebaseSave==='function') window._firebaseSave(currentStore);
+}
+
+// 현재 선택 초기화
+function clearSelectedZones(){
+  _selectedZoneIds.clear();
+  document.querySelectorAll('.zb.crt-selected').forEach(el=>el.classList.remove('crt-selected'));
+  document.getElementById('crtHint').textContent = '🖱 구역 블록을 클릭하여 다중 선택 후 [✓ 적용] 클릭';
+}
+
+// 전체 카테고리 삭제
+function clearAllCatRegions(){
+  if(!confirm('이 지점의 카테고리 지정을 모두 삭제할까요?')) return;
+  catRegions[currentStore] = [];
+  clearSelectedZones();
+  _renderCatZoneBorders();
+  renderCatFocusBar();
+  showToast('카테고리 전체 삭제');
+  if(typeof window._firebaseSave==='function') window._firebaseSave(currentStore);
+}
+
+// zone 블록에 카테고리 컬러 테두리 렌더 (관리자 모드)
+function _renderCatZoneBorders(){
+  // 우선 모든 zone 테두리 초기화
+  document.querySelectorAll('.zb').forEach(el=>{
+    el.classList.remove('cat-zone-border');
+    el.style.outline = '';
+    el.removeAttribute('data-cat-color');
+  });
+  if(!catRegionEditMode) return;
+  const regs = getStoreRegions();
+  regs.forEach(r=>{
+    if(!r.zoneIds) return;
+    const def = getCatDef(r.category);
+    r.zoneIds.forEach(zid=>{
+      const el = document.getElementById('z-'+zid);
+      if(el){
+        el.style.outline = `3px solid ${def.color}`;
+        el.setAttribute('data-cat-color', def.color);
+      }
+    });
+  });
+}
+
+// zone 블록 클릭 → 선택/해제 (관리자 편집 모드)
+function _onZoneBlockClick_cat(e){
+  if(!catZoneSelectMode || !catRegionEditMode) return;
+  if(document.body.classList.contains('viewer-mode')) return;
+  const zb = e.currentTarget;
+  const zid = zb.id.replace('z-','');
+  if(_selectedZoneIds.has(zid)){
+    _selectedZoneIds.delete(zid);
+    zb.classList.remove('crt-selected');
+  } else {
+    _selectedZoneIds.add(zid);
+    zb.classList.add('crt-selected');
+  }
+  const cnt = _selectedZoneIds.size;
+  document.getElementById('crtHint').textContent =
+    cnt>0 ? `✅ ${cnt}개 선택됨 — [✓ 적용] 클릭하여 '${getCatDef(activeCrtCat).label}' 지정` :
+             '🖱 구역 블록을 클릭하여 다중 선택 후 [✓ 적용] 클릭';
+}
+
+// render() 호출 후 zone 블록에 cat 클릭 이벤트 등록
+function _attachCatZoneListeners(){
+  document.querySelectorAll('.zb').forEach(el=>{
+    el.removeEventListener('click', _onZoneBlockClick_cat);
+    el.addEventListener('click', _onZoneBlockClick_cat);
+  });
+}
+
+// ── 초기화 ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', ()=>{
+  renderCatFocusBar();
+  _attachCatZoneListeners();
+});
+if(document.readyState !== 'loading'){
+  setTimeout(()=>{ renderCatFocusBar(); _attachCatZoneListeners(); }, 300);
+}
+
+// render() 호출 후 zone 리스너 재등록 + 테두리 갱신
+// render는 이 스크립트보다 먼저 정의되어 있으므로 즉시 wrap
+(function(){
+  if(typeof render === 'function'){
+    const _origR = render;
+    window.render = function(){
+      _origR.apply(this, arguments);
+      _attachCatZoneListeners();
+      if(catRegionEditMode) _renderCatZoneBorders();
+    };
+  }
+})();
 
 </script>
 </body>
