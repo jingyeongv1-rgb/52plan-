@@ -796,6 +796,36 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
   // Firebase 연결 상태 전역 노출
   const _initialLoadDone = {};
 
+
+  // ── rotation 복원 헬퍼 ──
+  function _restoreRotation(store, data) {
+    if (!data) return;
+    if (data.canvasRotation !== undefined && window.storeRotations) {
+      window.storeRotations[store] = data.canvasRotation || 0;
+    }
+    if (data.textRotation !== undefined && window.storeTextRot) {
+      window.storeTextRot[store] = data.textRotation || 0;
+    }
+    if (data.catTagPos !== undefined && window.storeCatTagPos) {
+      window.storeCatTagPos[store] = data.catTagPos || 'tl';
+    }
+    // 현재 지점이면 즉시 화면에 반영
+    if (typeof currentStore !== 'undefined' && store === currentStore) {
+      if (window.storeRotations && typeof applyScale === 'function') applyScale();
+      if (window.storeTextRot && typeof _applyGlobalTextRot === 'function') _applyGlobalTextRot();
+      if (window.storeCatTagPos) {
+        const pos = window.storeCatTagPos[store] || 'tl';
+        ['tl','tr','bl','br'].forEach(p => {
+          const btn = document.getElementById('catBtn_'+p);
+          if (btn) btn.style.background = p === pos ? 'rgba(255,255,255,.35)' : '';
+        });
+        const badge = document.getElementById('canvasRotBadge');
+        if (badge) badge.textContent = (window.storeRotations[store] || 0) + '°';
+        const tbadge = document.getElementById('textRotBadge');
+        if (tbadge) tbadge.textContent = (window.storeTextRot[store] || 0) + '°';
+      }
+    }
+  }
   function listenStore(store) {
     const r = ref(db, 'plan2026/' + store);
     onValue(r, snap => {
@@ -835,8 +865,12 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
             }
             // catRegions 복원
             if (data.catRegions && Array.isArray(data.catRegions)) {
-              catRegions[store] = JSON.parse(JSON.stringify(data.catRegions));
+              const _cr = JSON.parse(JSON.stringify(data.catRegions));
+              catRegions[store] = _cr;
+              if (window.catRegions) window.catRegions[store] = _cr;
             }
+            // 회전 복원
+            _restoreRotation(store, data);
             if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
             if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
           }
@@ -869,8 +903,12 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
         }
         // catRegions 복원
         if (data.catRegions && Array.isArray(data.catRegions)) {
-          catRegions[store] = JSON.parse(JSON.stringify(data.catRegions));
+          const _cr = JSON.parse(JSON.stringify(data.catRegions));
+          catRegions[store] = _cr;
+          if (window.catRegions) window.catRegions[store] = _cr;
         }
+        // 회전 복원
+        _restoreRotation(store, data);
         render(); renderPanel(); renderNav();
         if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
         syncUI('saved', '✅ 동기화됨');
@@ -894,14 +932,34 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
     try {
       _suppressNext.add(store);
       var allNames = window.storeNames || storeNames;
+      // 모든 데이터를 window.* 로 안전하게 접근 (module 스코프 분리 대응)
+      const _rotations    = window.storeRotations    || {};
+      const _textRots     = window.storeTextRot      || {};
+      const _catTagPoses  = window.storeCatTagPos    || {};
+      const _catRegions   = window.catRegions        || {};
+      const _zones        = window.zones             || [];
+      const _userOvr      = window.userOverrides     || {};
+      const _seasonOvr    = window.seasonOverrides   || {};
+      const _storeOvrs    = window.storeUserOverrides || storeUserOverrides;
+      const _storeSnaps   = window.storeZonesSnapshot || storeZonesSnapshot;
+      const _storeSeasons = window.storeSeasonOverrides || {};
+
+      const isCurrent = (store === currentStore);
       const payload = {
         name: allNames[store] || store,
-        zones: (store === currentStore) ? zones : (storeZonesSnapshot?.[store] || []),
-        userOverrides: (store === currentStore) ? userOverrides : (storeUserOverrides[store] || {}),
-        seasonOverrides: (store === currentStore)
-          ? JSON.parse(JSON.stringify(seasonOverrides))
-          : JSON.parse(JSON.stringify((window.storeSeasonOverrides && window.storeSeasonOverrides[store]) || {})),
-        catRegions: (catRegions[store] || []).map(r=>Object.assign({},r)),
+        zones: isCurrent
+          ? _zones.map(z => Object.assign({}, z))
+          : (_storeSnaps[store] || []).map(z => Object.assign({}, z)),
+        userOverrides: isCurrent
+          ? JSON.parse(JSON.stringify(_userOvr))
+          : JSON.parse(JSON.stringify(_storeOvrs[store] || {})),
+        seasonOverrides: isCurrent
+          ? JSON.parse(JSON.stringify(_seasonOvr))
+          : JSON.parse(JSON.stringify(_storeSeasons[store] || {})),
+        catRegions: JSON.parse(JSON.stringify(_catRegions[store] || [])),
+        canvasRotation: _rotations[store]  || 0,
+        textRotation:   _textRots[store]   || 0,
+        catTagPos:      _catTagPoses[store] || 'tl',
         savedAt: Date.now()
       };
       await set(ref(db, 'plan2026/' + store), payload);
@@ -1105,8 +1163,12 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
           }
           // catRegions 복원
           if (storeData.catRegions && Array.isArray(storeData.catRegions)) {
-            catRegions[code] = JSON.parse(JSON.stringify(storeData.catRegions));
+            const _cr = JSON.parse(JSON.stringify(storeData.catRegions));
+            catRegions[code] = _cr;
+            if (window.catRegions) window.catRegions[code] = _cr;
           }
+          // 회전 복원
+          _restoreRotation(code, storeData);
           if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
           if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
           if (typeof showToast === 'function') showToast('🔄 데이터 동기화됨');
@@ -2311,6 +2373,7 @@ function getSeasonBadge(zoneId, prod){
 // 카테고리 위치: 'tl'(좌상) 'tr'(우상) 'bl'(좌하) 'br'(우하)
 let catTagPos = 'tl'; // 현재 지점 캐시 (편의용)
 const storeCatTagPos = {}; // 지점별 카테고리 위치
+window.storeCatTagPos = storeCatTagPos;
 function getCatTagPos(){ return storeCatTagPos[currentStore] || 'tl'; }
 function _setCatTagPos(pos){ storeCatTagPos[currentStore] = pos; catTagPos = pos; }
 
@@ -5614,6 +5677,14 @@ window.storeMap = storeMap;
 window.storeNames = storeNames;
 window.storeUserOverrides = storeUserOverrides;
 window.storeZonesSnapshot = storeZonesSnapshot;
+// catRegions / zones / userOverrides / seasonOverrides — module 스코프 외부 접근용
+// (선언은 각각 다른 위치에 있어 직접 참조 불가 → 지연 노출)
+setTimeout(function() {
+  if (typeof catRegions    !== 'undefined') window.catRegions    = catRegions;
+  if (typeof zones         !== 'undefined') window.zones         = zones;
+  if (typeof userOverrides !== 'undefined') window.userOverrides = userOverrides;
+  if (typeof seasonOverrides !== 'undefined') window.seasonOverrides = seasonOverrides;
+}, 0);
 // 지점별 seasonOverrides 별도 보관 (비현재 지점 데이터 손실 방지)
 const storeSeasonOverrides = { gs:{}, bd:{}, gn:{}, sp:{}, pc:{}, rdw:{} };
 window.storeSeasonOverrides = storeSeasonOverrides;
@@ -6150,6 +6221,18 @@ function switchStore(store) {
     window.storeSeasonOverrides[currentStore] = JSON.parse(JSON.stringify(seasonOverrides));
   }
   currentStore = store;
+  // 새 지점 rotation 복원 (Firebase에서 이미 받은 값 적용)
+  if (window.storeRotations) {
+    // storeRotations는 이미 수신 시 채워져 있음 — applyScale에서 자동 반영
+  }
+  if (window.storeTextRot) {
+    const _newTr = window.storeTextRot[store] || 0;
+    if (typeof globalTextRot !== 'undefined') globalTextRot = _newTr;
+  }
+  if (window.storeCatTagPos) {
+    const _newPos = window.storeCatTagPos[store] || 'tl';
+    if (typeof catTagPos !== 'undefined') catTagPos = _newPos;
+  }
   const s = storeMap[store];
   zones.length = 0;
   // 이전에 편집한 zones가 있으면 복원, 없으면 기본값
@@ -6206,6 +6289,8 @@ function switchStore(store) {
    도면 회전 + 카테고리 위치 시스템
 ══════════════════════════════════════════════════ */
 const storeRotations = {};
+// Firebase module에서 접근할 수 있도록 window 노출
+window.storeRotations = storeRotations;
 
 function setCatPos(pos){
   _setCatTagPos(pos);
@@ -6232,6 +6317,7 @@ function canvasRotate(delta, mode){
 // ── 전체 글자 회전 ──────────────────────────────────────
 let globalTextRot = 0; // 현재 지점 캐시 (편의용)
 const storeTextRot = {}; // 지점별 전체 글자 회전
+window.storeTextRot = storeTextRot;
 function getGlobalTextRot(){ return storeTextRot[currentStore] || 0; }
 function _setGlobalTextRot(v){ storeTextRot[currentStore] = v; globalTextRot = v; }
 
@@ -7075,6 +7161,7 @@ function applyZoneCategory(){
   // 빈 그룹 정리
   const filtered = regs.filter(r=>!r.zoneIds || r.zoneIds.length>0);
   catRegions[currentStore] = filtered;
+  if(window.catRegions) window.catRegions[currentStore] = filtered;
 
   clearSelectedZones();
   _renderCatZoneBorders();
@@ -7094,6 +7181,7 @@ function clearCatForZones(){
     }
   });
   catRegions[currentStore] = regs.filter(r=>!r.zoneIds||r.zoneIds.length>0);
+  if(window.catRegions) window.catRegions[currentStore] = catRegions[currentStore];
   clearSelectedZones();
   _renderCatZoneBorders();
   renderCatFocusBar();
@@ -7112,6 +7200,7 @@ function clearSelectedZones(){
 function clearAllCatRegions(){
   if(!confirm('이 지점의 카테고리 지정을 모두 삭제할까요?')) return;
   catRegions[currentStore] = [];
+  if(window.catRegions) window.catRegions[currentStore] = [];
   clearSelectedZones();
   _renderCatZoneBorders();
   renderCatFocusBar();
