@@ -2743,9 +2743,11 @@ function render(){
 
   const wkOvr = getWkData(getCurWkId());
   // 카테고리 포커스 ID 세트 — 루프 전 한 번만 계산
-  const _catFocusIds = (typeof activeCatFocus !== 'undefined' && activeCatFocus !== 'all' && typeof _getZoneIdsForCat === 'function')
+  const __rawFocusIds = (typeof activeCatFocus !== 'undefined' && activeCatFocus !== 'all' && typeof _getZoneIdsForCat === 'function')
     ? _getZoneIdsForCat(activeCatFocus)
     : null;
+  // 빈 Set이면 null로 처리 — 데이터 없을 때 전체 dim 방지
+  const _catFocusIds = (__rawFocusIds && __rawFocusIds.size > 0) ? __rawFocusIds : null;
 
   zones.forEach(z=>{
     const el=document.createElement('div');
@@ -4103,12 +4105,22 @@ function startPixelDrag(e, startId){
 
 function onPixelDragMove(e){
   if(!pixelDrag) return;
-  let rawDx=(e.clientX-pixelDrag.startMouseX)/curScale;
-  let rawDy=(e.clientY-pixelDrag.startMouseY)/curScale;
-  if(Math.abs(rawDx)>2||Math.abs(rawDy)>2) pixelDrag.moved=true;
+  let screenDx=(e.clientX-pixelDrag.startMouseX)/curScale;
+  let screenDy=(e.clientY-pixelDrag.startMouseY)/curScale;
+  if(Math.abs(screenDx)>2||Math.abs(screenDy)>2) pixelDrag.moved=true;
   if(!pixelDrag.moved) return;
 
-  // Shift → 수평/수직 고정
+  // 도면 회전각만큼 마우스 델타를 역변환 → 도면 좌표계 델타
+  const _rotDeg = storeRotations[currentStore] || 0;
+  let rawDx = screenDx, rawDy = screenDy;
+  if(_rotDeg !== 0){
+    const _rad = _rotDeg * Math.PI / 180;
+    const _cos = Math.cos(-_rad), _sin = Math.sin(-_rad);
+    rawDx = screenDx * _cos - screenDy * _sin;
+    rawDy = screenDx * _sin + screenDy * _cos;
+  }
+
+  // Shift → 도면 좌표계 기준 수평/수직 고정
   if(e.shiftKey){
     if(Math.abs(rawDx)>=Math.abs(rawDy)) rawDy=0;
     else rawDx=0;
@@ -4489,27 +4501,45 @@ function onRotEnd(){
 /* ══════════════════════════════════════════
    도면 캔버스 확장 / 축소
 ═══════════════════════════════════════════ */
+// 화면 방향 → 도면 좌표 방향 변환 헬퍼
+// 도면이 N도 회전되어 있을 때, 화면에서 누른 방향 버튼이
+// 실제 도면 좌표계에서 어느 방향인지 역변환
+function _rotateDir(dir) {
+  const rot = ((storeRotations[currentStore] || 0) % 360 + 360) % 360;
+  if (rot === 0) return dir;
+  // 화면 방향 → 도면 좌표 방향 역변환
+  // gc가 N°  시계방향으로 회전되어 있으므로 역방향(-steps)으로 순환
+  const dirs = ['top', 'right', 'bottom', 'left'];
+  const steps = (rot / 90) | 0; // 90° 단위
+  const idx = dirs.indexOf(dir);
+  if (idx < 0) return dir;
+  return dirs[((idx - steps) % 4 + 4) % 4];
+}
+
 function expandCanvas(dir) {
+  // 화면 방향 → 도면 좌표 방향 변환 (회전각 보정)
+  dir = _rotateDir(dir);
   if (dir === 'top') {
     zones.forEach(function(z){ z.row += 1; });
-    showToast('▲ 위쪽에 1행 추가');
+    showToast('위쪽에 1행 추가');
     storeZonesSnapshot[currentStore] = zones.map(function(z){ return Object.assign({}, z); });
   } else if (dir === 'bottom') {
     canvasExtraR += 3;
-    showToast('▼ 아래쪽 3행 확장');
+    showToast('아래쪽 3행 확장');
   } else if (dir === 'left') {
     zones.forEach(function(z){ z.col += 1; });
-    showToast('◀ 왼쪽에 1열 추가');
+    showToast('왼쪽에 1열 추가');
     storeZonesSnapshot[currentStore] = zones.map(function(z){ return Object.assign({}, z); });
   } else if (dir === 'right') {
     canvasExtraC += 3;
-    showToast('▶ 오른쪽 3열 확장');
+    showToast('오른쪽 3열 확장');
   }
   render();
   applyScale();
 }
 
 function shrinkCanvas(dir) {
+  dir = _rotateDir(dir);
   if (dir === 'top') {
     // 가장 위 구역의 row 확인 — row=0인 구역 없으면 전체 1행 위로
     var minRow = Math.min.apply(null, zones.map(function(z){ return z.row; }));
@@ -5528,10 +5558,19 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key==='v'){e.preventDefault();pasteZone();return;}
   if((e.ctrlKey||e.metaKey)&&e.key==='d'){e.preventDefault();dupeZone();return;}
   if(!selId&&multiSelIds.size===0)return;
-  if(e.key==='ArrowLeft'){e.preventDefault();moveSel(-1,0);}
-  if(e.key==='ArrowRight'){e.preventDefault();moveSel(1,0);}
-  if(e.key==='ArrowUp'){e.preventDefault();moveSel(0,-1);}
-  if(e.key==='ArrowDown'){e.preventDefault();moveSel(0,1);}
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'||e.key==='ArrowUp'||e.key==='ArrowDown'){
+    e.preventDefault();
+    // 도면 회전각 보정: 화면 방향키 → 도면 좌표 델타 변환
+    const _kRot = ((storeRotations[currentStore]||0) % 360 + 360) % 360;
+    const _kMap = {
+      0:   {ArrowLeft:[-1,0], ArrowRight:[1,0],  ArrowUp:[0,-1], ArrowDown:[0,1]},
+      90:  {ArrowLeft:[0,1],  ArrowRight:[0,-1], ArrowUp:[-1,0], ArrowDown:[1,0]},
+      180: {ArrowLeft:[1,0],  ArrowRight:[-1,0], ArrowUp:[0,1],  ArrowDown:[0,-1]},
+      270: {ArrowLeft:[0,-1], ArrowRight:[0,1],  ArrowUp:[1,0],  ArrowDown:[-1,0]},
+    };
+    const _kDelta = (_kMap[_kRot]||_kMap[0])[e.key];
+    moveSel(_kDelta[0], _kDelta[1]);
+  }
   if(e.key==='Delete'||e.key==='Backspace')deleteSel();
 });
 
@@ -7013,6 +7052,8 @@ function _applyCatFocusPreview(cat){
 function _applyCatFocus(cat, silent){
   const ids = _getZoneIdsForCat(cat);
   if(!ids.size){
+    // 카테고리 데이터 없음 — dim 없이 전체 표시
+    _clearCatFocus();
     if(!silent) showToast('이 카테고리에 지정된 구역이 없습니다');
     return;
   }
