@@ -776,7 +776,7 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
-  const _suppressNext = new Set(); // 지점별 자기 업데이트 억제
+  const _myLastSavedAt = {}; // 지점별 내 마지막 저장 savedAt (자기 업데이트 억제용)
 
   // 동기화 상태 UI
   function syncUI(state, msg) {
@@ -814,9 +814,11 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
   function listenStore(store) {
     const r = ref(db, 'plan2026/' + store);
     onValue(r, snap => {
-      if (_suppressNext.has(store)) { _suppressNext.delete(store); return; }
-
       const data = snap.val();
+      // 내가 방금 저장한 데이터가 수신된 경우 무시 (savedAt 비교)
+      if (data && _myLastSavedAt[store] && data.savedAt === _myLastSavedAt[store]) {
+        return;
+      }
 
       if (!_initialLoadDone[store]) {
         _initialLoadDone[store] = true;
@@ -929,7 +931,6 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
   window._firebaseSave = async function(store) {
     syncUI('syncing', '저장 중...');
     try {
-      _suppressNext.add(store);
       var allNames = window.storeNames || storeNames;
       // 일반 스크립트가 window._getSavePayload(store)를 통해 전체 payload를 만들어 전달
       // (module 스코프 분리 문제를 완전히 우회)
@@ -938,12 +939,13 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
         : { name: store, zones: [], userOverrides: {}, seasonOverrides: {},
             catRegions: [], canvasRotation: 0, textRotation: 0, catTagPos: 'tl',
             savedAt: Date.now() };
+      // 내가 저장한 savedAt을 기억해 두어, onValue 수신 시 자기 업데이트를 무시
+      _myLastSavedAt[store] = payload.savedAt;
       console.log('[FIREBASE SET]', store, '| canvasRotation:', payload.canvasRotation);
       await set(ref(db, 'plan2026/' + store), payload);
       console.log('[FIREBASE SET 완료]', store);
       syncUI('saved', '저장됨 ✓');
     } catch(e) {
-      _suppressNext.delete(store);
       syncUI('error', '저장 실패');
       console.error('Firebase save error:', e);
     }
@@ -1100,8 +1102,10 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
       // 새 지점의 실제 데이터 불러오기 + 실시간 감시
       const storeDataRef = ref(db, 'plan2026/' + code);
       onValue(storeDataRef, dataSnap => {
-        if (_suppressNext.has(code)) { _suppressNext.delete(code); return; }
         const storeData = dataSnap.val();
+        if (storeData && _myLastSavedAt[code] && storeData.savedAt === _myLastSavedAt[code]) {
+          return;
+        }
         if (!storeData) return;
 
         // zones 데이터 업데이트
