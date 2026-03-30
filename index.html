@@ -905,6 +905,10 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
         }
         render(); renderPanel(); renderNav();
         if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
+        // 운영맵이 열려있으면 운영맵도 갱신
+        if (typeof omapLoaded !== 'undefined' && omapLoaded && typeof renderOmap === 'function') {
+          renderOmap();
+        }
         syncUI('saved', '✅ 동기화됨');
         showToast('🔄 다른 사용자가 수정했습니다');
       }
@@ -6876,7 +6880,13 @@ function applyOmapEdit() {
   // 상단 핵심배치 바도 갱신
   renderSeasonSummary(getCurWk() || wk);
   renderWkSummary();
-  showToast('운영맵 수정 완료 ✓');
+  // Firebase 동기화 저장
+  if (typeof window._firebaseSave === 'function') {
+    storeZonesSnapshot[currentStore] = zones.map(z => Object.assign({}, z));
+    storeUserOverrides[currentStore] = JSON.parse(JSON.stringify(userOverrides));
+    window._firebaseSave(currentStore);
+  }
+  showToast('운영맵 수정 완료 ✓ (저장 중...)');
 }
 
 function resetOmapEdit() {
@@ -6889,7 +6899,13 @@ function resetOmapEdit() {
   showOmapDetail(wk, sm, qi);
   renderSeasonSummary(getCurWk() || wk);
   renderWkSummary();
-  showToast('원본으로 되돌렸습니다');
+  // Firebase 동기화 저장
+  if (typeof window._firebaseSave === 'function') {
+    storeZonesSnapshot[currentStore] = zones.map(z => Object.assign({}, z));
+    storeUserOverrides[currentStore] = JSON.parse(JSON.stringify(userOverrides));
+    window._firebaseSave(currentStore);
+  }
+  showToast('원본으로 되돌렸습니다 (저장 중...)');
 }
 
 // 운영맵 테이블에서 특정 주차 행 셀만 업데이트
@@ -6994,6 +7010,7 @@ function getStoreRegions(){
 
 // ── 관리자: 영역 편집 상태 ──────────────────────────
 let catRegionEditMode  = false;
+let catRegionDrawing   = false; // 카테고리 영역 드래그 중 여부
 let catZoneSelectMode  = false;   // zone 블록 클릭 선택 ON/OFF
 let activeCrtCat       = CAT_DEF[0].key;
 let _selectedZoneIds   = new Set(); // 현재 선택된 zone IDs
