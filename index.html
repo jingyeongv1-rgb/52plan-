@@ -1218,6 +1218,41 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
   });
 
   // ── 공개설정 Firebase 동기화 ──
+  // ── 공유 운영맵(seasonOverrides) Firebase 저장 ──
+  window._firebaseSaveSharedSeason = async function(so) {
+    try {
+      await set(ref(db, 'plan2026/_settings/seasonOverrides'), so);
+    } catch(e) {
+      console.error('Firebase sharedSeason save error:', e);
+    }
+  };
+
+  // 공유 seasonOverrides 실시간 수신
+  const sharedSeasonRef = ref(db, 'plan2026/_settings/seasonOverrides');
+  onValue(sharedSeasonRef, snap => {
+    const data = snap.val();
+    if (!data || typeof data !== 'object') return;
+    // 모든 지점의 storeSeasonOverrides에 동일하게 적용
+    if (window.storeSeasonOverrides) {
+      Object.keys(window.storeNames || {}).forEach(code => {
+        window.storeSeasonOverrides[code] = JSON.parse(JSON.stringify(data));
+      });
+    }
+    // 현재 활성 seasonOverrides에도 반영
+    if (typeof seasonOverrides !== 'undefined') {
+      Object.keys(seasonOverrides).forEach(k => delete seasonOverrides[k]);
+      Object.assign(seasonOverrides, data);
+    }
+    // 화면 갱신
+    if (typeof render === 'function') render();
+    if (typeof renderWkSummary === 'function') renderWkSummary();
+    if (typeof renderSeasonSummary === 'function') {
+      const cw = typeof getCurWk === 'function' ? getCurWk() : null;
+      if (cw) renderSeasonSummary(cw);
+    }
+    if (typeof omapLoaded !== 'undefined' && omapLoaded && typeof renderOmap === 'function') renderOmap();
+  });
+
   window._firebaseSavePublicMonths = async function(months) {
     try {
       await set(ref(db, 'plan2026/_settings/publicMonths'), months);
@@ -6964,11 +6999,9 @@ function applyOmapEdit() {
   // 상단 핵심배치 바도 갱신
   renderSeasonSummary(getCurWk() || wk);
   renderWkSummary();
-  // Firebase 동기화 저장
-  if (typeof window._firebaseSave === 'function') {
-    storeZonesSnapshot[currentStore] = zones.map(z => Object.assign({}, z));
-    storeUserOverrides[currentStore] = JSON.parse(JSON.stringify(userOverrides));
-    window._firebaseSave(currentStore);
+  // 공유 운영맵 Firebase 저장 (전 지점 공통)
+  if (typeof window._firebaseSaveSharedSeason === 'function') {
+    window._firebaseSaveSharedSeason(JSON.parse(JSON.stringify(seasonOverrides)));
   }
   showToast('운영맵 수정 완료 ✓ (저장 중...)');
 }
@@ -6983,11 +7016,9 @@ function resetOmapEdit() {
   showOmapDetail(wk, sm, qi);
   renderSeasonSummary(getCurWk() || wk);
   renderWkSummary();
-  // Firebase 동기화 저장
-  if (typeof window._firebaseSave === 'function') {
-    storeZonesSnapshot[currentStore] = zones.map(z => Object.assign({}, z));
-    storeUserOverrides[currentStore] = JSON.parse(JSON.stringify(userOverrides));
-    window._firebaseSave(currentStore);
+  // 공유 운영맵 Firebase 저장 (전 지점 공통)
+  if (typeof window._firebaseSaveSharedSeason === 'function') {
+    window._firebaseSaveSharedSeason(JSON.parse(JSON.stringify(seasonOverrides)));
   }
   showToast('원본으로 되돌렸습니다 (저장 중...)');
 }
