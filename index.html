@@ -861,6 +861,21 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
           }
           // 모든 지점 rotation 항상 저장 (현재 지점 여부 무관)
           _restoreRotation(store, data);
+          // _rotData → storeRotations 즉시 반영 (currentStore 여부 무관)
+          const _rd0 = window._rotData && window._rotData[store];
+          if (_rd0) {
+            if (typeof storeRotations !== 'undefined') storeRotations[store] = _rd0.canvasRotation;
+            if (window.storeRotations) window.storeRotations[store] = _rd0.canvasRotation;
+            if (typeof storeTextRot !== 'undefined') storeTextRot[store] = _rd0.textRotation;
+            if (window.storeTextRot) window.storeTextRot[store] = _rd0.textRotation;
+            if (typeof storeCatTagPos !== 'undefined') storeCatTagPos[store] = _rd0.catTagPos;
+            if (window.storeCatTagPos) window.storeCatTagPos[store] = _rd0.catTagPos;
+            // 현재 지점이면 화면에도 즉시 반영
+            if (store === (window.currentStore || 'gs') && typeof applyScale === 'function') {
+              applyScale();
+              requestAnimationFrame(function(){ applyScale(); });
+            }
+          }
         }
 
         syncUI('saved', '✅ 연결됨');
@@ -868,6 +883,7 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
           if (window._appReady && data) {
             // 타임아웃 오발로 하드코딩 데이터가 먼저 렌더된 경우 → Firebase 데이터로 강제 재렌더
             if (typeof render === 'function') { render(); renderPanel(); renderNav(); }
+            if (typeof applyScale === 'function') { applyScale(); requestAnimationFrame(function(){ applyScale(); }); }
             if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
           } else if (typeof window._renderOnReady === 'function') {
             window._renderOnReady();
@@ -918,6 +934,7 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
           }
         }
         render(); renderPanel(); renderNav();
+        if (typeof applyScale === 'function') { applyScale(); requestAnimationFrame(function(){ applyScale(); }); }
         if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
         // 운영맵이 열려있으면 운영맵도 갱신
         if (typeof omapLoaded !== 'undefined' && omapLoaded && typeof renderOmap === 'function') {
@@ -6561,7 +6578,10 @@ window._renderOnReady = function() {
 
   // 화면 렌더링
   render();
+  // rotation이 복원된 후 applyScale을 즉시 + 다음 프레임에 한 번 더 호출
+  // (DOM 크기 확정 타이밍 문제로 rotation이 0으로 보이는 현상 방지)
   applyScale();
+  requestAnimationFrame(function(){ applyScale(); });
   if (typeof renderCatFocusBar === 'function') renderCatFocusBar();
   renderWkSummary();
   initRpSections();
