@@ -798,36 +798,62 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
 
 
   // ── rotation 복원 헬퍼 ──
+  // window.storeRotations 등이 일반 스크립트보다 늦게 선언될 수 있으므로
+  // 값을 직접 저장해두고, 화면 반영은 _renderOnReady 이후 시점에 수행
+  const _pendingRotations = {}; // { store: {canvasRotation, textRotation, catTagPos} }
+
   function _restoreRotation(store, data) {
     if (!data) return;
-    if (data.canvasRotation !== undefined && window.storeRotations) {
-      window.storeRotations[store] = data.canvasRotation || 0;
+    // 값을 캐시에 저장
+    _pendingRotations[store] = {
+      canvasRotation: data.canvasRotation !== undefined ? (data.canvasRotation || 0) : undefined,
+      textRotation:   data.textRotation   !== undefined ? (data.textRotation   || 0) : undefined,
+      catTagPos:      data.catTagPos      !== undefined ? (data.catTagPos      || 'tl') : undefined,
+    };
+    // window.* 에 즉시 반영 시도
+    _applyPendingRotation(store);
+  }
+
+  function _applyPendingRotation(store) {
+    const p = _pendingRotations[store];
+    if (!p) return;
+    if (p.canvasRotation !== undefined && window.storeRotations) {
+      window.storeRotations[store] = p.canvasRotation;
     }
-    if (data.textRotation !== undefined && window.storeTextRot) {
-      window.storeTextRot[store] = data.textRotation || 0;
+    if (p.textRotation !== undefined && window.storeTextRot) {
+      window.storeTextRot[store] = p.textRotation;
     }
-    if (data.catTagPos !== undefined && window.storeCatTagPos) {
-      window.storeCatTagPos[store] = data.catTagPos || 'tl';
+    if (p.catTagPos !== undefined && window.storeCatTagPos) {
+      window.storeCatTagPos[store] = p.catTagPos;
     }
-    // 현재 지점이면 즉시 화면에 반영
-    if (typeof currentStore !== 'undefined' && store === currentStore) {
-      // render() 먼저 호출해야 새 회전값이 도면에 반영됨
-      if (typeof render === 'function') render();
-      if (window.storeRotations && typeof applyScale === 'function') applyScale();
-      if (window.storeTextRot && typeof _applyGlobalTextRot === 'function') _applyGlobalTextRot();
+    // 현재 지점이면 화면에 반영
+    if (store === (window.currentStore || 'gs')) {
+      if (typeof applyScale === 'function') applyScale();
+      if (typeof _applyGlobalTextRot === 'function') _applyGlobalTextRot();
+      const badge = document.getElementById('canvasRotBadge');
+      if (badge && window.storeRotations) badge.textContent = (window.storeRotations[store] || 0) + '°';
+      const tbadge = document.getElementById('textRotBadge');
+      if (tbadge && window.storeTextRot) tbadge.textContent = (window.storeTextRot[store] || 0) + '°';
       if (window.storeCatTagPos) {
         const pos = window.storeCatTagPos[store] || 'tl';
-        ['tl','tr','bl','br'].forEach(p => {
-          const btn = document.getElementById('catBtn_'+p);
-          if (btn) btn.style.background = p === pos ? 'rgba(255,255,255,.35)' : '';
+        ['tl','tr','bl','br'].forEach(function(pp) {
+          const btn = document.getElementById('catBtn_'+pp);
+          if (btn) btn.style.background = pp === pos ? 'rgba(255,255,255,.35)' : '';
         });
-        const badge = document.getElementById('canvasRotBadge');
-        if (badge) badge.textContent = (window.storeRotations[store] || 0) + '°';
-        const tbadge = document.getElementById('textRotBadge');
-        if (tbadge) tbadge.textContent = (window.storeTextRot[store] || 0) + '°';
       }
     }
   }
+
+  // _renderOnReady 후 pending rotation 재적용 (window.* 노출 타이밍 보장)
+  const _origRenderOnReady = window._renderOnReady;
+  window._renderOnReady = function() {
+    if (_origRenderOnReady) _origRenderOnReady();
+    // 모든 지점 pending rotation 적용
+    Object.keys(_pendingRotations).forEach(_applyPendingRotation);
+    // 현재 지점 화면 갱신
+    if (typeof render === 'function') render();
+    if (typeof applyScale === 'function') applyScale();
+  };
   function listenStore(store) {
     const r = ref(db, 'plan2026/' + store);
     onValue(r, snap => {
