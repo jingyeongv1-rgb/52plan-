@@ -926,36 +926,13 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
     try {
       _suppressNext.add(store);
       var allNames = window.storeNames || storeNames;
-      // 모든 데이터를 window.* 로 안전하게 접근 (module 스코프 분리 대응)
-      const _rotations    = window.storeRotations    || {};
-      const _textRots     = window.storeTextRot      || {};
-      const _catTagPoses  = window.storeCatTagPos    || {};
-      const _catRegions   = window.catRegions        || {};
-      const _zones        = window.zones             || [];
-      const _userOvr      = window.userOverrides     || {};
-      const _seasonOvr    = window.seasonOverrides   || {};
-      const _storeOvrs    = window.storeUserOverrides || storeUserOverrides;
-      const _storeSnaps   = window.storeZonesSnapshot || storeZonesSnapshot;
-      const _storeSeasons = window.storeSeasonOverrides || {};
-
-      const isCurrent = (store === currentStore);
-      const payload = {
-        name: allNames[store] || store,
-        zones: isCurrent
-          ? _zones.map(z => Object.assign({}, z))
-          : (_storeSnaps[store] || []).map(z => Object.assign({}, z)),
-        userOverrides: isCurrent
-          ? JSON.parse(JSON.stringify(_userOvr))
-          : JSON.parse(JSON.stringify(_storeOvrs[store] || {})),
-        seasonOverrides: isCurrent
-          ? JSON.parse(JSON.stringify(_seasonOvr))
-          : JSON.parse(JSON.stringify(_storeSeasons[store] || {})),
-        catRegions: JSON.parse(JSON.stringify(_catRegions[store] || [])),
-        canvasRotation: (_rotations[store]  !== undefined) ? _rotations[store]  : 0,
-        textRotation:   (_textRots[store]   !== undefined) ? _textRots[store]   : 0,
-        catTagPos:      (_catTagPoses[store] !== undefined) ? _catTagPoses[store] : 'tl',
-        savedAt: Date.now()
-      };
+      // 일반 스크립트가 window._getSavePayload(store)를 통해 전체 payload를 만들어 전달
+      // (module 스코프 분리 문제를 완전히 우회)
+      const payload = window._getSavePayload
+        ? window._getSavePayload(store)
+        : { name: store, zones: [], userOverrides: {}, seasonOverrides: {},
+            catRegions: [], canvasRotation: 0, textRotation: 0, catTagPos: 'tl',
+            savedAt: Date.now() };
       await set(ref(db, 'plan2026/' + store), payload);
       syncUI('saved', '저장됨 ✓');
     } catch(e) {
@@ -5159,21 +5136,49 @@ function toggleMode(){
   }
 }
 
+// ── Firebase payload 생성 (일반 스크립트 스코프에서 모든 변수 직접 접근) ──
+window._getSavePayload = function(store) {
+  var isCurrent = (store === currentStore);
+  // zones
+  var saveZones = isCurrent
+    ? zones.map(function(z){ return Object.assign({}, z); })
+    : (storeZonesSnapshot[store] || []).map(function(z){ return Object.assign({}, z); });
+  // userOverrides
+  var saveOvr = isCurrent
+    ? JSON.parse(JSON.stringify(userOverrides))
+    : JSON.parse(JSON.stringify(storeUserOverrides[store] || {}));
+  // seasonOverrides
+  var saveSeason = isCurrent
+    ? JSON.parse(JSON.stringify(seasonOverrides))
+    : JSON.parse(JSON.stringify((storeSeasonOverrides && storeSeasonOverrides[store]) || {}));
+  // catRegions
+  var saveCat = JSON.parse(JSON.stringify(catRegions[store] || []));
+  // rotation (storeRotations 직접 접근 - 스코프 문제 없음)
+  var saveRot = storeRotations[store] || 0;
+  var saveTxt = storeTextRot[store]   || 0;
+  var savePos = storeCatTagPos[store] || 'tl';
+
+  var allNames = window.storeNames || storeNames;
+  return {
+    name:           allNames[store] || store,
+    zones:          saveZones,
+    userOverrides:  saveOvr,
+    seasonOverrides: saveSeason,
+    catRegions:     saveCat,
+    canvasRotation: saveRot,
+    textRotation:   saveTxt,
+    catTagPos:      savePos,
+    savedAt:        Date.now()
+  };
+};
+
 // ── Firebase 실시간 동기화 저장 ──
 function syncToFirebase(){
   if(typeof window._firebaseSave === 'function'){
-    // 현재 점포 저장 — 모든 상태를 window.* 에 확실히 반영
+    // storeZonesSnapshot 최신화 (zones는 직접 참조이므로 storeZonesSnapshot만 갱신)
     storeUserOverrides[currentStore] = JSON.parse(JSON.stringify(userOverrides));
     storeZonesSnapshot[currentStore] = zones.map(z => Object.assign({}, z));
-    if(window.storeUserOverrides) window.storeUserOverrides[currentStore] = storeUserOverrides[currentStore];
-    if(window.storeZonesSnapshot) window.storeZonesSnapshot[currentStore] = storeZonesSnapshot[currentStore];
-    if(window.catRegions && typeof catRegions !== 'undefined') window.catRegions[currentStore] = catRegions[currentStore] || [];
-    if(window.userOverrides && typeof userOverrides !== 'undefined'){ Object.keys(window.userOverrides).forEach(k=>delete window.userOverrides[k]); Object.assign(window.userOverrides, userOverrides); }
-    if(window.seasonOverrides && typeof seasonOverrides !== 'undefined'){ Object.keys(window.seasonOverrides).forEach(k=>delete window.seasonOverrides[k]); Object.assign(window.seasonOverrides, seasonOverrides); }
-    // rotation 값 명시적 갱신 (module 스코프 분리 대응)
-    if(window.storeRotations)  window.storeRotations[currentStore]  = storeRotations[currentStore]  || 0;
-    if(window.storeTextRot)    window.storeTextRot[currentStore]    = storeTextRot[currentStore]    || 0;
-    if(window.storeCatTagPos)  window.storeCatTagPos[currentStore]  = storeCatTagPos[currentStore]  || 'tl';
+    // payload는 _getSavePayload가 일반 스크립트 변수를 직접 읽어서 생성
     window._firebaseSave(currentStore);
     showToast('🔄 서버에 동기화 중...');
   } else {
