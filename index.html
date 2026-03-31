@@ -2,6 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>52주 AI 표준화</title>
 
@@ -382,6 +385,65 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 /* TOAST */
 .toast{position:fixed;bottom:54px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--dark);color:white;padding:7px 14px;border-radius:6px;font-size:11px;font-weight:600;z-index:999;transition:transform .25s ease;border-left:4px solid var(--gmid);white-space:nowrap;}
 .toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ── 동기화 확인 모달 ── */
+#syncConfirmModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8500;align-items:center;justify-content:center;}
+#syncConfirmModal.open{display:flex;}
+.scm-box{background:#fff;border-radius:14px;padding:0;width:540px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+.scm-head{background:linear-gradient(135deg,#1a1712 0%,#2d2a24 100%);padding:18px 22px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.scm-head-icon{font-size:20px;}
+.scm-head-title{font-size:15px;font-weight:900;color:#fff;letter-spacing:-.3px;}
+.scm-head-sub{font-size:11px;color:#7dcd7d;margin-top:1px;letter-spacing:.2px;}
+.scm-body{padding:20px 22px;overflow-y:auto;flex:1;}
+.scm-section{margin-bottom:16px;}
+.scm-section-lbl{font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.7px;text-transform:uppercase;margin-bottom:7px;}
+.scm-inp-row{display:flex;gap:8px;}
+.scm-inp{font-family:'Pretendard',sans-serif;font-size:13px;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:8px;background:#fafafa;color:#111827;flex:1;}
+.scm-inp:focus{outline:none;border-color:#16a34a;background:#fff;}
+.scm-diff{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;max-height:220px;overflow-y:auto;}
+.scm-diff-empty{padding:20px;text-align:center;color:#9ca3af;font-size:12px;}
+.scm-diff-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid #f1f5f9;}
+.scm-diff-item:last-child{border-bottom:none;}
+.scm-diff-badge{font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0;margin-top:1px;}
+.scm-badge-mod{background:#fef3c7;color:#92400e;}
+.scm-badge-add{background:#dcfce7;color:#166534;}
+.scm-badge-del{background:#fee2e2;color:#991b1b;}
+.scm-badge-zone{background:#eff6ff;color:#1d4ed8;}
+.scm-diff-content{flex:1;min-width:0;}
+.scm-diff-zone{font-size:12px;font-weight:700;color:#111827;margin-bottom:3px;}
+.scm-diff-detail{font-size:11px;color:#6b7280;line-height:1.6;}
+.scm-diff-detail .chg-from{color:#dc2626;text-decoration:line-through;}
+.scm-diff-detail .chg-to{color:#16a34a;font-weight:700;}
+.scm-footer{padding:14px 22px;border-top:1px solid #f1f5f9;display:flex;gap:8px;flex-shrink:0;background:#fafafa;}
+.scm-btn-cancel{flex:1;font-family:'Pretendard',sans-serif;font-size:13px;font-weight:700;padding:11px;border:1.5px solid #e5e7eb;border-radius:8px;background:#fff;color:#6b7280;cursor:pointer;}
+.scm-btn-cancel:hover{background:#f3f4f6;}
+.scm-btn-save{flex:2;font-family:'Pretendard',sans-serif;font-size:13px;font-weight:800;padding:11px;border:none;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer;letter-spacing:-.2px;}
+.scm-btn-save:hover{background:#15803d;}
+.scm-btn-save:disabled{background:#9ca3af;cursor:not-allowed;}
+
+/* ── 변경 로그 모달 ── */
+#logViewModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8500;align-items:center;justify-content:center;}
+#logViewModal.open{display:flex;}
+.lvm-box{background:#fff;border-radius:14px;width:640px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+.lvm-head{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:16px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.lvm-title{font-size:15px;font-weight:900;color:#fff;letter-spacing:-.3px;}
+.lvm-close{background:rgba(255,255,255,.12);border:none;color:#fff;font-size:16px;width:30px;height:30px;border-radius:6px;cursor:pointer;font-family:'Pretendard',sans-serif;}
+.lvm-filters{padding:12px 22px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;align-items:center;background:#f8fafc;}
+.lvm-filter-lbl{font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.5px;}
+.lvm-filter-sel{font-family:'Pretendard',sans-serif;font-size:12px;padding:5px 9px;border:1.5px solid #e5e7eb;border-radius:6px;background:#fff;color:#111827;cursor:pointer;}
+.lvm-body{padding:0;overflow-y:auto;flex:1;}
+.lvm-entry{border-bottom:1px solid #f1f5f9;padding:14px 22px;}
+.lvm-entry:last-child{border-bottom:none;}
+.lvm-entry-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+.lvm-entry-store{font-size:11px;font-weight:800;padding:2px 8px;border-radius:4px;background:#1a1712;color:#7dcd7d;}
+.lvm-entry-who{font-size:12px;font-weight:700;color:#111827;}
+.lvm-entry-time{font-size:10px;color:#9ca3af;margin-left:auto;}
+.lvm-entry-changes{margin-top:4px;}
+.lvm-chg-row{font-size:11px;color:#374151;line-height:1.7;padding:1px 0;}
+.lvm-chg-row .chg-from{color:#dc2626;text-decoration:line-through;}
+.lvm-chg-row .chg-to{color:#16a34a;font-weight:700;}
+.lvm-empty{padding:40px;text-align:center;color:#9ca3af;font-size:13px;}
+.lvm-loading{padding:40px;text-align:center;color:#9ca3af;font-size:13px;}
 
 /* MODAL */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:400;align-items:center;justify-content:center;}
@@ -893,6 +955,10 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
           }
         }
 
+        // 서버 스냅샷 저장 (diff 계산용)
+        if (data && typeof window._updateServerSnapshot === 'function') {
+          window._updateServerSnapshot(store, data);
+        }
         syncUI('saved', '✅ 연결됨');
         if (store === (window.currentStore || 'gs')) {
           if (window._appReady && data) {
@@ -955,6 +1021,10 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
         if (typeof omapLoaded !== 'undefined' && omapLoaded && typeof renderOmap === 'function') {
           renderOmap();
         }
+        // 서버 스냅샷 갱신 (diff 계산용)
+        if (typeof window._updateServerSnapshot === 'function') {
+          window._updateServerSnapshot(store, data);
+        }
         syncUI('saved', '✅ 동기화됨');
         showToast('🔄 다른 사용자가 수정했습니다');
       }
@@ -975,14 +1045,11 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
     syncUI('syncing', '저장 중...');
     try {
       var allNames = window.storeNames || storeNames;
-      // 일반 스크립트가 window._getSavePayload(store)를 통해 전체 payload를 만들어 전달
-      // (module 스코프 분리 문제를 완전히 우회)
       const payload = window._getSavePayload
         ? window._getSavePayload(store)
         : { name: store, zones: [], userOverrides: {}, seasonOverrides: {},
             catRegions: [], canvasRotation: 0, textRotation: 0, catTagPos: 'tl',
             savedAt: Date.now() };
-      // 내가 저장한 savedAt을 기억해 두어, onValue 수신 시 자기 업데이트를 무시
       _myLastSavedAt[store] = payload.savedAt;
       console.log('[FIREBASE SET]', store, '| canvasRotation:', payload.canvasRotation);
       await set(ref(db, 'plan2026/' + store), payload);
@@ -992,6 +1059,27 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
       syncUI('error', '저장 실패');
       console.error('Firebase save error:', e);
     }
+  };
+
+  // ── 변경 로그 Firebase 저장 ──
+  window._firebaseSaveLog = async function(logEntry) {
+    try {
+      const logKey = 'log_' + Date.now() + '_' + Math.floor(Math.random()*9999);
+      await set(ref(db, 'plan2026/_logs/' + logKey), logEntry);
+    } catch(e) {
+      console.error('Log save error:', e);
+    }
+  };
+
+  // ── 변경 로그 불러오기 ──
+  window._firebaseLoadLogs = function(callback) {
+    const logsRef = ref(db, 'plan2026/_logs');
+    get(logsRef).then(snap => {
+      const data = snap.val();
+      if (!data) { callback([]); return; }
+      const arr = Object.values(data).sort((a,b) => b.savedAt - a.savedAt);
+      callback(arr);
+    }).catch(e => { console.error('Load logs error:', e); callback([]); });
   };
 
   // ── 새 지점 Firebase에 저장 ──
@@ -1281,6 +1369,19 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
 
 </head>
 <body>
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  var el = document.getElementById('_jsErrBanner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_jsErrBanner';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#dc2626;color:#fff;font-size:12px;font-weight:700;padding:8px 14px;font-family:monospace;white-space:pre-wrap;word-break:break-all;';
+    document.body.appendChild(el);
+  }
+  el.textContent = '⚠️ JS 오류: ' + msg + ' (' + src + ':' + line + ':' + col + ')';
+  return false;
+};
+</script>
 <!-- 줌 컨트롤 — 도면 캔버스 우상단 고정 -->
 <div class="zoom-ctrl" id="zoomCtrl">
   <button class="zoom-btn" onclick="zoomStep(-0.1)">−</button>
@@ -1321,6 +1422,63 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
       <div id="lockErr" style="color:#f87171;font-size:13px;margin-top:8px;min-height:20px"></div>
     </div>
     <div id="lockHint" style="font-size:12px;color:#4b5563;margin-top:14px;line-height:1.6">열람 모드는 공개된 월만 확인 가능합니다</div>
+  </div>
+</div>
+
+<!-- ══ 동기화 확인 모달 ══ -->
+<div id="syncConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8500;align-items:center;justify-content:center;">
+  <div class="scm-box">
+    <div class="scm-head">
+      <span class="scm-head-icon">🔄</span>
+      <div>
+        <div class="scm-head-title">서버 동기화 저장</div>
+        <div class="scm-head-sub">변경 내역을 확인 후 저장하세요</div>
+      </div>
+    </div>
+    <div class="scm-body">
+      <div class="scm-section">
+        <div class="scm-section-lbl">저장자 정보 <span style="color:#ef4444">*필수</span></div>
+        <div class="scm-inp-row">
+          <input class="scm-inp" id="scmBranchInp" placeholder="지점명 (예: 강서점)" maxlength="20"/>
+          <input class="scm-inp" id="scmNameInp" placeholder="성함 (예: 홍길동)" maxlength="10"/>
+        </div>
+      </div>
+      <div class="scm-section">
+        <div class="scm-section-lbl" style="display:flex;align-items:center;gap:6px;">
+          변경 내역 <span id="scmDiffCount" style="font-size:10px;color:#6b7280;font-weight:600;text-transform:none;letter-spacing:0;"></span>
+        </div>
+        <div class="scm-diff" id="scmDiffList">
+          <div class="scm-diff-empty">변경 내역을 분석 중...</div>
+        </div>
+      </div>
+    </div>
+    <div class="scm-footer">
+      <button class="scm-btn-cancel" onclick="closeSyncConfirmModal()">취소</button>
+      <button class="scm-btn-save" id="scmSaveBtn" onclick="doSyncSave()">✅ 서버에 동기화 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 변경 로그 조회 모달 ══ -->
+<div id="logViewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8500;align-items:center;justify-content:center;">
+  <div class="lvm-box">
+    <div class="lvm-head">
+      <div class="lvm-title">📋 변경 로그 조회</div>
+      <button class="lvm-close" onclick="closeLogViewModal()">✕</button>
+    </div>
+    <div class="lvm-filters">
+      <span class="lvm-filter-lbl">필터:</span>
+      <select class="lvm-filter-sel" id="logFilterStore" onchange="renderLogEntries()">
+        <option value="">전체 지점</option>
+      </select>
+      <select class="lvm-filter-sel" id="logFilterWho" onchange="renderLogEntries()">
+        <option value="">전체 저장자</option>
+      </select>
+      <span id="logTotalCount" style="font-size:11px;color:#9ca3af;margin-left:auto;"></span>
+    </div>
+    <div class="lvm-body" id="logViewBody">
+      <div class="lvm-loading">로딩 중...</div>
+    </div>
   </div>
 </div>
 
@@ -1382,8 +1540,11 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
       <div id="saveDropMenu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1.5px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);min-width:160px;z-index:9999;overflow:hidden;">
         <div style="padding:6px 0;">
           <div style="font-size:9px;font-weight:800;color:#16a34a;letter-spacing:.5px;padding:4px 14px 2px;">🔄 실시간 동기화</div>
-          <button onclick="syncToFirebase();closeSaveDrop()" style="width:100%;text-align:left;padding:7px 14px;border:none;background:#f0fdf4;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#16a34a;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+          <button onclick="openSyncConfirmModal();closeSaveDrop();" style="width:100%;text-align:left;padding:7px 14px;border:none;background:#f0fdf4;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#16a34a;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
             🔄 서버에 동기화 저장
+          </button>
+          <button onclick="openLogViewModal();closeSaveDrop();" style="width:100%;text-align:left;padding:7px 14px;border:none;background:none;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#6366f1;" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='none'">
+            📋 변경 로그 조회
           </button>
         </div>
         <div style="border-top:1px solid #f3f4f6;padding:6px 0;">
@@ -5297,6 +5458,402 @@ function syncToFirebase(){
   }
 }
 
+// ════════════════════════════════════════════════════════
+//  동기화 확인 모달 + Diff 계산 + 변경 로그 시스템
+// ════════════════════════════════════════════════════════
+
+// 저장 직전 비교용 스냅샷 (Firebase에서 받은 서버 최신 상태)
+var _serverSnapshot = {}; // { [store]: { zones:[], userOverrides:{} } }
+
+// Firebase onValue 수신 시 서버 스냅샷 갱신 (일반 스크립트에서 호출)
+window._updateServerSnapshot = function(store, data) {
+  if (!data) return;
+  _serverSnapshot[store] = {
+    zones: (data.zones || []).map(function(z){ return Object.assign({}, z); }),
+    userOverrides: JSON.parse(JSON.stringify(data.userOverrides || {}))
+  };
+};
+
+// ── Diff 계산: 현재 상태 vs 서버 스냅샷 ──
+function _calcDiff(store) {
+  var hasSnap = !!_serverSnapshot[store];
+  var snap = _serverSnapshot[store] || { zones: [], userOverrides: {} };
+  var curZones = store === currentStore
+    ? zones.map(function(z){ return Object.assign({}, z); })
+    : (storeZonesSnapshot[store] || []).map(function(z){ return Object.assign({}, z); });
+  var curOvr = store === currentStore
+    ? JSON.parse(JSON.stringify(userOverrides))
+    : JSON.parse(JSON.stringify(storeUserOverrides[store] || {}));
+
+  // 서버 스냅샷이 아직 없으면 (첫 저장 or 세션 시작 직후) 비교 불가
+  if (!hasSnap) {
+    return [{ type: 'info', kind: 'nosnap',
+      zone: '',
+      detail: '페이지를 연 후 처음 저장하는 경우 상세 변경 내역 비교가 어렵습니다.\n저장은 정상적으로 진행됩니다.' }];
+  }
+
+  var diffs = [];
+
+  // ── zone 구조 변경 비교 ──
+  var snapZoneMap = {};
+  snap.zones.forEach(function(z){ snapZoneMap[z.id] = z; });
+  var curZoneMap  = {};
+  curZones.forEach(function(z){ curZoneMap[z.id]  = z; });
+
+  // 추가된 zone
+  curZones.forEach(function(z) {
+    if (!snapZoneMap[z.id]) {
+      diffs.push({ type: 'add', kind: 'zone', zone: z.name || z.id,
+        detail: '새 구역 추가 (크기: ' + z.cols + '×' + z.rows + ')' });
+    }
+  });
+  // 삭제된 zone
+  snap.zones.forEach(function(z) {
+    if (!curZoneMap[z.id]) {
+      diffs.push({ type: 'del', kind: 'zone', zone: z.name || z.id,
+        detail: '구역 삭제됨' });
+    }
+  });
+  // 변경된 zone
+  curZones.forEach(function(z) {
+    var s = snapZoneMap[z.id];
+    if (!s) return;
+    var changes = [];
+    if ((s.name || '') !== (z.name || '')) changes.push({ field:'구역명', from: s.name||'(없음)', to: z.name||'(없음)' });
+    if ((s.prod || '') !== (z.prod || '')) changes.push({ field:'기본상품', from: s.prod||'(없음)', to: z.prod||'(없음)' });
+    if ((s.note || '') !== (z.note || '')) changes.push({ field:'메모', from: s.note||'(없음)', to: z.note||'(없음)' });
+    if ((s.pri  || '') !== (z.pri  || '')) changes.push({ field:'우선순위', from: s.pri||'(없음)',  to: z.pri||'(없음)'  });
+    if ((s.type || '') !== (z.type || '')) changes.push({ field:'설비유형', from: s.type||'(없음)', to: z.type||'(없음)' });
+    if ((s.color|| '') !== (z.color|| '')) changes.push({ field:'색상',   from: s.color||'(기본)', to: z.color||'(기본)' });
+    // 위치·크기는 내부 좌표값이라 로그 제외 (알아보기 어려움)
+    if (changes.length) diffs.push({ type: 'mod', kind: 'zone', zone: z.name || z.id, changes: changes });
+  });
+
+  // ── userOverrides(주차별 상품) 비교 ──
+  var allWkKeys = {};
+  Object.keys(curOvr).forEach(function(k){ allWkKeys[k]=1; });
+  Object.keys(snap.userOverrides).forEach(function(k){ allWkKeys[k]=1; });
+
+  Object.keys(allWkKeys).forEach(function(wkId) {
+    var before = snap.userOverrides[wkId] || {};
+    var after  = curOvr[wkId] || {};
+    var wkLabel = _wkLabel(wkId); // 예: "4월 2주"
+    var allZIds = {};
+    Object.keys(before).forEach(function(k){ allZIds[k]=1; });
+    Object.keys(after).forEach(function(k){ allZIds[k]=1; });
+    Object.keys(allZIds).forEach(function(zId) {
+      var b = before[zId] || {};
+      var a = after[zId]  || {};
+      var changes = [];
+      if ((b.prod  || '') !== (a.prod  || '')) changes.push({ field:'배치상품', from: b.prod||'(없음)', to: a.prod||'(없음)' });
+      if ((b.note  || '') !== (a.note  || '')) changes.push({ field:'메모',    from: b.note||'(없음)', to: a.note||'(없음)' });
+      if ((b.status|| '') !== (a.status|| '')) changes.push({ field:'상태',    from: _statusLabel(b.status), to: _statusLabel(a.status) });
+      if (changes.length) {
+        // zone 이름 찾기
+        var zoneObj = curZones.find(function(z){ return z.id===zId; }) || {};
+        var zoneName = zoneObj.name || zId;
+        // zone 표시명: "4월 2주 · 딸기존" 형태로 주차를 앞에
+        diffs.push({ type: 'mod', kind: 'override', zone: zoneName, week: wkLabel, changes: changes });
+      }
+    });
+  });
+
+  return diffs;
+}
+
+function _statusLabel(s) {
+  if (!s || s === '(없음)') return '(없음)';
+  if (s === 'planned')   return '📋 계획중';
+  if (s === 'confirmed') return '✅ 확정';
+  if (s === 'tbd')       return '❓ 미정';
+  return s;
+}
+
+function _wkLabel(wkId) {
+  // wkId 형식: 'W01', 'W13' 등 — WEEKS 배열에서 id 직접 매칭 후 label 반환
+  if (typeof WEEKS !== 'undefined' && WEEKS.length) {
+    // 1) id 직접 매칭 (예: 'W01')
+    var found = null;
+    for (var _i=0; _i<WEEKS.length; _i++) {
+      if (WEEKS[_i].id === wkId) { found = WEEKS[_i]; break; }
+    }
+    // 2) 대문자 변환 후 재시도 (예: 'w01' → 'W01')
+    if (!found) {
+      var upper = String(wkId).toUpperCase();
+      for (var _j=0; _j<WEEKS.length; _j++) {
+        if (WEEKS[_j].id === upper) { found = WEEKS[_j]; break; }
+      }
+    }
+    // 3) 숫자 추출 후 'W{nn}' 형태로 재조합
+    if (!found) {
+      var num = parseInt(String(wkId).replace(/[^0-9]/g, ''), 10);
+      if (!isNaN(num)) {
+        var padded = 'W' + ('0'+num).slice(-2);
+        for (var _k=0; _k<WEEKS.length; _k++) {
+          if (WEEKS[_k].id === padded) { found = WEEKS[_k]; break; }
+        }
+      }
+    }
+    if (found) return found.label; // "4월 2주" 형태 그대로 반환
+  }
+  return wkId; // 못 찾으면 원본 id 그대로
+}
+
+// ── 확인 모달 열기 ──
+function openSyncConfirmModal() {
+  if (!isAdmin) { showToast('관리자만 저장 가능합니다'); return; }
+  // 저장자 정보 복원 (localStorage)
+  var savedBranch = localStorage.getItem('_syncBranch') || '';
+  var savedName   = localStorage.getItem('_syncName')   || '';
+  document.getElementById('scmBranchInp').value = savedBranch;
+  document.getElementById('scmNameInp').value   = savedName;
+
+  // diff 계산
+  var diffs = _calcDiff(currentStore);
+  _renderDiff(diffs);
+
+  var modal = document.getElementById('syncConfirmModal');
+  modal.style.display = 'flex';
+
+  // 저장 버튼 활성 상태 갱신
+  _scmValidate();
+  document.getElementById('scmBranchInp').addEventListener('input', _scmValidate);
+  document.getElementById('scmNameInp').addEventListener('input', _scmValidate);
+}
+
+function closeSyncConfirmModal() {
+  document.getElementById('syncConfirmModal').style.display = 'none';
+}
+
+function _scmValidate() {
+  var b = document.getElementById('scmBranchInp').value.trim();
+  var n = document.getElementById('scmNameInp').value.trim();
+  var btn = document.getElementById('scmSaveBtn');
+  if (b && n) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.45';
+  }
+}
+
+function _renderDiff(diffs) {
+  var list = document.getElementById('scmDiffList');
+  var cnt  = document.getElementById('scmDiffCount');
+
+  if (!diffs.length) {
+    list.innerHTML = '<div class="scm-diff-empty">✅ 서버와 동일한 내용입니다 (변경 없음)</div>';
+    cnt.textContent = '(변경 없음)';
+    return;
+  }
+
+  cnt.textContent = '(' + diffs.length + '건)';
+
+  // override 항목을 주차별로 그룹화해서 표시
+  var html = diffs.map(function(d) {
+    // 정보성 메시지 (스냅샷 없음 등)
+    if (d.type === 'info') {
+      cnt.textContent = '';
+      return '<div class="scm-diff-empty" style="color:#92400e;background:#fef3c7;border-radius:6px;padding:14px 16px;text-align:left;line-height:1.7;">'
+        + '⚠️ ' + _esc(d.detail).replace(/\n/g,'<br>') + '</div>';
+    }
+    var badgeCls = d.type==='add' ? 'scm-badge-add' : d.type==='del' ? 'scm-badge-del' : 'scm-badge-mod';
+    var badgeTxt = d.type==='add' ? '추가' : d.type==='del' ? '삭제' : '수정';
+
+    // 주차별 상품 변경: "4월 2주" 를 굵게 앞에, 구역명을 뒤에
+    var titleHtml = '';
+    if (d.kind === 'override') {
+      titleHtml = '<span style="font-size:13px;font-weight:900;color:#1d4ed8;">' + _esc(d.week) + '</span>'
+                + '<span style="font-size:11px;color:#6b7280;margin-left:5px;">· ' + _esc(d.zone) + '</span>';
+    } else {
+      titleHtml = '<span style="font-size:12px;font-weight:700;color:#111827;">' + _esc(d.zone) + '</span>';
+    }
+
+    var detail = '';
+    if (d.type === 'del') {
+      detail = '<span class="chg-from">' + _esc(d.detail) + '</span>';
+    } else if (d.type === 'add') {
+      detail = '<span class="chg-to">' + _esc(d.detail) + '</span>';
+    } else if (d.changes) {
+      detail = d.changes.map(function(c) {
+        return '<b>' + _esc(c.field) + '</b>: <span class="chg-from">' + _esc(c.from) + '</span> → <span class="chg-to">' + _esc(c.to) + '</span>';
+      }).join('<br>');
+    }
+    return '<div class="scm-diff-item">' +
+      '<span class="scm-diff-badge ' + badgeCls + '">' + badgeTxt + '</span>' +
+      '<div class="scm-diff-content">' +
+        '<div class="scm-diff-zone">' + titleHtml + '</div>' +
+        '<div class="scm-diff-detail">' + detail + '</div>' +
+      '</div></div>';
+  }).join('');
+
+  list.innerHTML = html;
+}
+
+function _esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── 실제 저장 실행 ──
+function doSyncSave() {
+  var branch = document.getElementById('scmBranchInp').value.trim();
+  var name   = document.getElementById('scmNameInp').value.trim();
+  if (!branch || !name) { showToast('지점명과 성함을 입력해주세요'); return; }
+
+  // localStorage에 저장자 정보 기억
+  localStorage.setItem('_syncBranch', branch);
+  localStorage.setItem('_syncName',   name);
+
+  // diff 계산 (로그용)
+  var diffs = _calcDiff(currentStore);
+  var storeName = (window.storeNames || storeNames)[currentStore] || currentStore;
+
+  // 로그 엔트리 구성
+  var logEntry = {
+    savedAt:   Date.now(),
+    store:     currentStore,
+    storeName: storeName,
+    branch:    branch,
+    who:       name,
+    diffCount: diffs.length,
+    diffs:     diffs
+  };
+
+  // Firebase 저장
+  if (typeof window._firebaseSave === 'function') {
+    storeUserOverrides[currentStore] = JSON.parse(JSON.stringify(userOverrides));
+    storeZonesSnapshot[currentStore] = zones.map(function(z){ return Object.assign({},z); });
+    window._firebaseSave(currentStore);
+    // 로그 저장
+    if (typeof window._firebaseSaveLog === 'function') {
+      window._firebaseSaveLog(logEntry);
+    }
+    showToast('✅ [' + branch + ' ' + name + '] 서버 동기화 완료');
+  } else {
+    showToast('❌ Firebase 연결 안됨');
+  }
+
+  closeSyncConfirmModal();
+}
+
+// ════ 변경 로그 조회 ════
+var _logAllEntries = [];
+
+function openLogViewModal() {
+  if (!isAdmin) { showToast('관리자만 조회 가능합니다'); return; }
+  var modal = document.getElementById('logViewModal');
+  modal.style.display = 'flex';
+  document.getElementById('logViewBody').innerHTML = '<div class="lvm-loading">로딩 중...</div>';
+
+  if (typeof window._firebaseLoadLogs === 'function') {
+    window._firebaseLoadLogs(function(entries) {
+      _logAllEntries = entries;
+      _buildLogFilters(entries);
+      renderLogEntries();
+    });
+  } else {
+    document.getElementById('logViewBody').innerHTML = '<div class="lvm-empty">Firebase 연결이 필요합니다</div>';
+  }
+}
+
+function closeLogViewModal() {
+  document.getElementById('logViewModal').style.display = 'none';
+}
+
+function _buildLogFilters(entries) {
+  var stores = {}, whos = {};
+  entries.forEach(function(e) {
+    if (e.storeName) stores[e.storeName] = e.store;
+    if (e.who)       whos[e.branch + ' ' + e.who] = 1;
+  });
+
+  var storesSel = document.getElementById('logFilterStore');
+  storesSel.innerHTML = '<option value="">전체 지점</option>';
+  Object.keys(stores).forEach(function(n) {
+    var opt = document.createElement('option');
+    opt.value = stores[n]; opt.textContent = n;
+    storesSel.appendChild(opt);
+  });
+
+  var whoSel = document.getElementById('logFilterWho');
+  whoSel.innerHTML = '<option value="">전체 저장자</option>';
+  Object.keys(whos).forEach(function(w) {
+    var opt = document.createElement('option');
+    opt.value = w; opt.textContent = w;
+    whoSel.appendChild(opt);
+  });
+}
+
+function renderLogEntries() {
+  var filterStore = document.getElementById('logFilterStore').value;
+  var filterWho   = document.getElementById('logFilterWho').value;
+  var body = document.getElementById('logViewBody');
+
+  var filtered = _logAllEntries.filter(function(e) {
+    if (filterStore && e.store !== filterStore) return false;
+    if (filterWho   && (e.branch + ' ' + e.who) !== filterWho) return false;
+    return true;
+  });
+
+  document.getElementById('logTotalCount').textContent = '총 ' + filtered.length + '건';
+
+  if (!filtered.length) {
+    body.innerHTML = '<div class="lvm-empty">조건에 맞는 로그가 없습니다</div>';
+    return;
+  }
+
+  body.innerHTML = filtered.map(function(e) {
+    var dt = new Date(e.savedAt);
+    var dtStr = dt.getFullYear() + '.' +
+      ('0'+(dt.getMonth()+1)).slice(-2) + '.' +
+      ('0'+dt.getDate()).slice(-2) + ' ' +
+      ('0'+dt.getHours()).slice(-2) + ':' +
+      ('0'+dt.getMinutes()).slice(-2);
+
+    var changesHtml = '';
+    if (e.diffs && e.diffs.length) {
+      changesHtml = e.diffs.slice(0, 10).map(function(d) {
+        var tag = d.type==='add' ? '🟢' : d.type==='del' ? '🔴' : '🟡';
+        var detail = '';
+        if (d.type === 'del') detail = d.detail || '';
+        else if (d.type === 'add') detail = d.detail || '';
+        else if (d.changes) {
+          detail = d.changes.map(function(c) {
+            return '<b>' + _esc(c.field) + '</b>: <span class="chg-from">' + _esc(c.from) + '</span> → <span class="chg-to">' + _esc(c.to) + '</span>';
+          }).join(' &nbsp;·&nbsp; ');
+        }
+        // override(주차별 변경): "4월 2주" 굵게 + 구역명 작게
+        var titlePart = '';
+        if (d.kind === 'override') {
+          titlePart = '<span style="font-weight:800;color:#1d4ed8;">' + _esc(d.week||'') + '</span>'
+                    + ' <span style="color:#6b7280;font-size:10px;">· ' + _esc(d.zone) + '</span>';
+        } else {
+          titlePart = '<b>' + _esc(d.zone) + '</b>';
+        }
+        return '<div class="lvm-chg-row">' + tag + ' ' + titlePart +
+          (detail ? ': ' + detail : '') + '</div>';
+      }).join('');
+      if (e.diffs.length > 10) {
+        changesHtml += '<div class="lvm-chg-row" style="color:#9ca3af;">... 외 ' + (e.diffs.length-10) + '건</div>';
+      }
+    } else {
+      changesHtml = '<div class="lvm-chg-row" style="color:#9ca3af;">변경 내역 없음 (동일 내용 저장)</div>';
+    }
+
+    return '<div class="lvm-entry">' +
+      '<div class="lvm-entry-head">' +
+        '<span class="lvm-entry-store">' + _esc(e.storeName || e.store) + '</span>' +
+        '<span class="lvm-entry-who">📍 ' + _esc(e.branch) + ' &nbsp; 👤 ' + _esc(e.who) + '</span>' +
+        '<span class="lvm-entry-time">🕐 ' + dtStr + '</span>' +
+      '</div>' +
+      '<div class="lvm-entry-changes">' + changesHtml + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ── Firebase onValue에서 서버 스냅샷 갱신 hook ──
+// (Firebase module의 listenStore 콜백 이후에 호출되도록 window 노출)
 // ── 파일명용 타임스탬프 생성 (항상 새 파일로 저장) ──
 function _makeTimestamp(){
   var now = new Date();
