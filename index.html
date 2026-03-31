@@ -5387,7 +5387,12 @@ function tryLogin(){
     document.getElementById('adminMonthBtn').style.display='';
     document.getElementById('adminLogoutBtn').style.display='';
     document.getElementById('backToHomeBtn').style.display='none';
+    // 관리자 로그인 시 오늘 주차로 이동
+    const _todayIdx = getTodayWkIdx();
+    curWkIdx = _todayIdx;
+    curMonthIdx = WEEKS[_todayIdx].mo;
     if(!editMode){ editMode=true; render(); }
+    renderNav();
     document.getElementById('modeTag').textContent='편집 모드';
     document.getElementById('modeTag').className='badge b-edit';
     document.getElementById('toolbar').style.display='flex';
@@ -5421,9 +5426,16 @@ function enterViewer(){
   document.getElementById('modeTag').className='badge b-view';
   document.getElementById('toolbar').style.display='none';
   document.getElementById('drawToolbar').classList.add('hidden');
-  const firstMo = Math.min(...pub); // 0-based
-  const firstWk = WEEKS.findIndex(w => w.mo === firstMo);
-  if(firstWk>=0){ curWkIdx=firstWk; curMonthIdx=WEEKS[firstWk].mo; }
+  // 오늘 주차가 공개된 월에 포함되면 오늘 주차로, 아니면 첫 공개 월 첫 주차로
+  const _todayWk = getTodayWkIdx();
+  const _todayInPub = pub.includes(WEEKS[_todayWk].mo);
+  if(_todayInPub){
+    curWkIdx = _todayWk; curMonthIdx = WEEKS[_todayWk].mo;
+  } else {
+    const firstMo = Math.min(...pub); // 0-based
+    const firstWk = WEEKS.findIndex(w => w.mo === firstMo);
+    if(firstWk>=0){ curWkIdx=firstWk; curMonthIdx=WEEKS[firstWk].mo; }
+  }
   // 열람자: 요약 패널 표시
   const _sw2 = document.getElementById('wkSummaryWrap');
   const _sh2 = document.getElementById('summaryResizeHandle');
