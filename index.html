@@ -277,6 +277,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 .rh[data-d="s"] {cursor:s-resize;}
 .rh[data-d="sw"]{cursor:sw-resize;}
 .rh[data-d="w"] {cursor:w-resize;}
+/* 커서 방향은 JS(positionHandles)에서 도면 회전각에 맞게 동적으로 덮어씁니다 */
 /* 회전 핸들 */
 .rh-rot{
   position:absolute;
@@ -4706,9 +4707,17 @@ function onRM(e){
   const z=zones.find(x=>x.id===resizing.id); if(!z) return;
   const el=document.getElementById('z-'+resizing.id); if(!el) return;
   const dir=resizing.dir;
-  const rawDx=(e.clientX-resizing.sx)/curScale;
-  const rawDy=(e.clientY-resizing.sy)/curScale;
   const MIN_W=20, MIN_H=14;
+
+  // ── 화면 마우스 델타 → 도면(gc) 좌표계 델타로 역변환 ──
+  // gc가 canvasRotation도 회전되어 있으므로 반대 방향으로 역회전
+  const screenDx = e.clientX - resizing.sx;
+  const screenDy = e.clientY - resizing.sy;
+  const rotDeg = ((storeRotations[currentStore] || 0) % 360 + 360) % 360;
+  const rotRad = -rotDeg * Math.PI / 180; // 역방향
+  const cos = Math.cos(rotRad), sin = Math.sin(rotRad);
+  const rawDx = (screenDx * cos - screenDy * sin) / curScale;
+  const rawDy = (screenDx * sin + screenDy * cos) / curScale;
 
   let nl=resizing.sl, nt=resizing.st, nw=resizing.sw, nh=resizing.sh;
   if(dir==='e'||dir==='ne'||dir==='se')  nw=Math.max(MIN_W, resizing.sw+rawDx);
@@ -4773,9 +4782,23 @@ function positionHandles(el){
     s:  { left:w/2-half,    top:h-half      },
     se: { left:w-half,      top:h-half      },
   };
+
+  // 도면 회전각에 따라 커서 방향 회전
+  const cursorOrder = ['nw','n','ne','e','se','s','sw','w'];
+  const cursorMap   = {
+    nw:'nw-resize', n:'n-resize', ne:'ne-resize', e:'e-resize',
+    se:'se-resize', s:'s-resize', sw:'sw-resize', w:'w-resize'
+  };
+  const rot = ((storeRotations[currentStore] || 0) % 360 + 360) % 360;
+  const steps = Math.round(rot / 45) % 8;
+
   el.querySelectorAll('.rh[data-d]').forEach(rh=>{
     const p = positions[rh.dataset.d];
     if(p){ rh.style.left=p.left+'px'; rh.style.top=p.top+'px'; }
+    const baseIdx = cursorOrder.indexOf(rh.dataset.d);
+    if(baseIdx >= 0){
+      rh.style.cursor = cursorMap[cursorOrder[(baseIdx + steps) % 8]];
+    }
   });
   // 회전 핸들: 상단 중앙 바깥 20px
   const rotEl = el.querySelector('.rh-rot');
