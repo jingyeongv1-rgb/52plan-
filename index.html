@@ -8872,69 +8872,102 @@ function renderSalesGroupBlocks(gcEl, groups, zoneGroupMap, metricMap, maxPerSal
       return [pts[0],pts[pts.length-1]];
     }
 
-    // ── 모든 폴리곤을 하나의 SVG path로 합치기 ──
-    // (분리된 집기 덩어리가 여러 개여도 모두 표시)
-    var bcx = (mnX+mxX)/2, bcy = (mnY+mxY)/2;
+    // ── 각 폴리곤(분리된 덩어리)별 개별 처리 ──
+    // 가장 큰 폴리곤 찾기 (레이블 표시 위치 결정)
+    function polyBBox(poly) {
+      var xs = poly.map(p=>p[0]), ys = poly.map(p=>p[1]);
+      var x1=Math.min(...xs),y1=Math.min(...ys),x2=Math.max(...xs),y2=Math.max(...ys);
+      return { x1,y1,x2,y2, w:x2-x1, h:y2-y1, area:(x2-x1)*(y2-y1), cx:(x1+x2)/2, cy:(y1+y2)/2 };
+    }
 
-    var pathData = polys.map(function(poly) {
+    var polyInfos = polys.map(function(poly) {
       var simplified = dpSimplify(poly, UNIT*0.5);
-      return 'M ' + simplified.map(p=>p[0]+' '+p[1]).join(' L ') + ' Z';
-    }).join(' ');
+      var d = 'M ' + simplified.map(p=>p[0]+' '+p[1]).join(' L ') + ' Z';
+      var bb = polyBBox(poly);
+      return { d, bb, poly };
+    }).sort((a,b) => b.bb.area - a.bb.area); // 큰 것 먼저
 
-    if (!pathData) return;
+    if (!polyInfos.length) return;
 
-    // ── 채움 path (fill-rule:evenodd → 내부 홀 처리) ──
-    var fillPath = document.createElementNS(ns, 'path');
-    fillPath.setAttribute('d', pathData);
-    fillPath.setAttribute('fill', heatColor);
-    fillPath.setAttribute('fill-opacity', '0.85');
-    fillPath.setAttribute('fill-rule', 'nonzero');
-    fillPath.style.pointerEvents='none';
-    svg.appendChild(fillPath);
+    // ── 각 덩어리마다 채움 + 테두리 그리기 ──
+    var fillPaths = [], strokePaths = [];
+    polyInfos.forEach(function(pi) {
+      var fp = document.createElementNS(ns, 'path');
+      fp.setAttribute('d', pi.d);
+      fp.setAttribute('fill', heatColor);
+      fp.setAttribute('fill-opacity', '0.85');
+      fp.setAttribute('fill-rule', 'nonzero');
+      fp.style.pointerEvents = 'none';
+      svg.appendChild(fp);
+      fillPaths.push(fp);
 
-    // ── 아웃라인 path ──
-    var strokePath = document.createElementNS(ns, 'path');
-    strokePath.setAttribute('d', pathData);
-    strokePath.setAttribute('fill', 'none');
-    strokePath.setAttribute('stroke', g.color);
-    strokePath.setAttribute('stroke-width', '4');
-    strokePath.setAttribute('stroke-linejoin', 'round');
-    strokePath.setAttribute('stroke-linecap', 'round');
-    strokePath.style.pointerEvents='none';
-    svg.appendChild(strokePath);
+      var sp = document.createElementNS(ns, 'path');
+      sp.setAttribute('d', pi.d);
+      sp.setAttribute('fill', 'none');
+      sp.setAttribute('stroke', g.color);
+      sp.setAttribute('stroke-width', '4');
+      sp.setAttribute('stroke-linejoin', 'round');
+      sp.setAttribute('stroke-linecap', 'round');
+      sp.style.pointerEvents = 'none';
+      svg.appendChild(sp);
+      strokePaths.push(sp);
+    });
 
-    // ── 중심 그룹이름 + 평당매출 크게 표시 (foreignObject) ──
-    var cW = mxX - mnX, cH = mxY - mnY;
+    // ── 레이블: 가장 큰 덩어리 중심에만 표시 ──
+    var mainBB = polyInfos[0].bb;
     var cFo = document.createElementNS(ns, 'foreignObject');
-    cFo.setAttribute('x', mnX);
-    cFo.setAttribute('y', mnY);
-    cFo.setAttribute('width', cW);
-    cFo.setAttribute('height', cH);
+    cFo.setAttribute('x', mainBB.x1);
+    cFo.setAttribute('y', mainBB.y1);
+    cFo.setAttribute('width',  mainBB.w);
+    cFo.setAttribute('height', mainBB.h);
     cFo.style.pointerEvents = 'none';
-    var fontSize1 = Math.max(11, Math.min(18, cW / 6));
-    var fontSize2 = Math.max(14, Math.min(28, cW / 4));
+    var fontSize1 = Math.max(11, Math.min(18, mainBB.w / 6));
+    var fontSize2 = Math.max(14, Math.min(28, mainBB.w / 4));
     cFo.innerHTML =
       '<div xmlns="http://www.w3.org/1999/xhtml" style="'+
         'width:100%;height:100%;display:flex;flex-direction:column;'+
-        'align-items:center;justify-content:center;gap:4px;'+
-        'pointer-events:none;">'+
+        'align-items:center;justify-content:center;gap:4px;pointer-events:none;">'+
         '<div style="font-family:Pretendard,sans-serif;font-size:'+fontSize1+'px;font-weight:900;color:#fff;'+
-          'text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.5);white-space:nowrap;">'+
+          'text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.6);white-space:nowrap;">'+
           g.label+
         '</div>'+
-        (tPS>0?'<div style="font-family:Pretendard,sans-serif;font-size:'+fontSize2+'px;font-weight:900;color:#fff;'+
-          'text-align:center;text-shadow:0 1px 6px rgba(0,0,0,.5);white-space:nowrap;">'+
+        (tPS>0?
+          '<div style="font-family:Pretendard,sans-serif;font-size:'+fontSize2+'px;font-weight:900;color:#fff;'+
+          'text-align:center;text-shadow:0 1px 6px rgba(0,0,0,.6);white-space:nowrap;">'+
           tPS.toLocaleString()+'만/평</div>':'') +
       '</div>';
     svg.appendChild(cFo);
 
-    // ── hover hit path (모든 폴리곤 영역) ──
+    // ── 분리된 작은 덩어리에 배지(이름 태그) 표시 ──
+    polyInfos.slice(1).forEach(function(pi) {
+      var bb = pi.bb;
+      var bFo = document.createElementNS(ns, 'foreignObject');
+      var bW = Math.min(bb.w, 80), bH = Math.min(bb.h, 28);
+      bFo.setAttribute('x', bb.cx - bW/2);
+      bFo.setAttribute('y', bb.cy - bH/2);
+      bFo.setAttribute('width',  bW);
+      bFo.setAttribute('height', bH);
+      bFo.style.pointerEvents = 'none';
+      bFo.innerHTML =
+        '<div xmlns="http://www.w3.org/1999/xhtml" style="'+
+          'width:100%;height:100%;display:flex;align-items:center;justify-content:center;">'+
+          '<span style="font-family:Pretendard,sans-serif;font-size:10px;font-weight:800;'+
+            'color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);white-space:nowrap;'+
+            'background:'+g.color+';border-radius:4px;padding:2px 6px;">'+
+            g.label+
+          '</span>'+
+        '</div>';
+      svg.appendChild(bFo);
+    });
+
+    // ── 모든 덩어리를 하나로 합친 hit path (hover 감지용) ──
+    var allPathData = polyInfos.map(pi=>pi.d).join(' ');
     var hitPath = document.createElementNS(ns, 'path');
-    hitPath.setAttribute('d', pathData);
+    hitPath.setAttribute('d', allPathData);
     hitPath.setAttribute('fill', 'transparent');
     hitPath.setAttribute('fill-rule', 'nonzero');
-    hitPath.style.pointerEvents='all';
-    hitPath.style.cursor='pointer';
+    hitPath.style.pointerEvents = 'all';
+    hitPath.style.cursor = 'pointer';
 
     var groupFake = {
       z:{ name:g.label, id:gid },
@@ -8948,13 +8981,13 @@ function renderSalesGroupBlocks(gcEl, groups, zoneGroupMap, metricMap, maxPerSal
     };
 
     hitPath.addEventListener('mouseenter', ()=>{
-      fillPath.setAttribute('fill-opacity','1');
-      strokePath.setAttribute('stroke-width','6');
+      fillPaths.forEach(fp=>fp.setAttribute('fill-opacity','1'));
+      strokePaths.forEach(sp=>sp.setAttribute('stroke-width','6'));
       showSalesZoneCard(groupFake, hitPath);
     });
     hitPath.addEventListener('mouseleave', ()=>{
-      fillPath.setAttribute('fill-opacity','0.85');
-      strokePath.setAttribute('stroke-width','4');
+      fillPaths.forEach(fp=>fp.setAttribute('fill-opacity','0.85'));
+      strokePaths.forEach(sp=>sp.setAttribute('stroke-width','4'));
       hideSalesZoneCard();
     });
     svg.appendChild(hitPath);
@@ -9315,8 +9348,8 @@ function renderRankTab(container, metrics, avgPerSales, highEff, sorted_ps) {
     highItems.slice(0,8).forEach(r=>{
       const row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;transition:background .08s;';
-      row.onmouseover=()=>{row.zids.forEach(id=>highlightSalesMapZone(id,true));row.style.background='#dcfce7';};
-      row.onmouseout= ()=>{row.zids.forEach(id=>highlightSalesMapZone(id,false));row.style.background='';};
+      row.onmouseover=()=>{r.zids.forEach(id=>highlightSalesMapZone(id,true));row.style.background='#dcfce7';};
+      row.onmouseout= ()=>{r.zids.forEach(id=>highlightSalesMapZone(id,false));row.style.background='';};
       row.innerHTML=
         '<span style="font-size:13px;flex-shrink:0;">✅</span>'+
         (r.color?'<div style="width:10px;height:10px;border-radius:2px;background:'+r.color+';flex-shrink:0;"></div>':'')+
