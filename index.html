@@ -33,7 +33,7 @@
 body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;height:100vh;display:flex;flex-direction:column;}
 
 /* HEADER */
-.hdr{background:var(--dark);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--gmid);flex-shrink:0;z-index:300;}
+.hdr{background:var(--dark);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--gmid);flex-shrink:0;z-index:400;}
 .hdr h1{font-size:14px;font-weight:900;color:#fff;}.hdr h1 em{color:#7dcd7d;font-style:normal;}
 .hdr-sub{font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;font-size:9px;color:#777;margin-top:1px;letter-spacing:1px;}
 .hdr-r{display:flex;gap:6px;align-items:center;}
@@ -46,6 +46,13 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 
 /* ── WEEK NAVIGATOR ── */
 .nav{background:#fff;border-bottom:2px solid var(--border);flex-shrink:0;z-index:200;}
+/* 탭별 nav 표시 제어 */
+body.plan-view-active   .nav { display: block; }
+body.sales-view-active  .nav { display: none; }
+body.omap-view-active   .nav { display: none; }
+/* 평당매출 탭: 월별 탭만 별도 표시 */
+#salesMonthNav { display: none; background:#fff; border-bottom:2px solid var(--border); flex-shrink:0; z-index:200; }
+body.sales-view-active #salesMonthNav { display: block; }
 
 /* Row 1: current week info + arrows */
 .nav-top{display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--border);}
@@ -125,8 +132,9 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 .mz3 .mz-tab{background:#16A34A;}
 .canvas-area{position:relative;}
 .gc{position:relative;background:#fff;border:2px solid #333;border-radius:6px;padding:8px;overflow:visible;}
+#gc-sales{position:relative;background:#fff;border:2px solid #333;border-radius:6px;padding:8px;overflow:visible;}
 
-.zoom-ctrl{position:fixed;z-index:500;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.96);border:1.5px solid #e5e7eb;border-radius:10px;padding:6px 10px;box-shadow:0 2px 12px rgba(0,0,0,.15);}
+.zoom-ctrl{position:fixed;z-index:350;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.96);border:1.5px solid #e5e7eb;border-radius:10px;padding:6px 10px;box-shadow:0 2px 12px rgba(0,0,0,.15);}
 .zoom-btn{width:28px;height:28px;border:1.5px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;color:#374151;transition:all .1s;}
 .zoom-btn:hover{background:#f3f4f6;border-color:#9ca3af;}
 .zoom-pct{font-size:12px;font-weight:700;color:#374151;min-width:38px;text-align:center;font-family:monospace;}
@@ -694,10 +702,6 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
 
 /* Firebase 동기화 상태 표시 */
 #syncStatus {
-  position: fixed;
-  top: 8px;
-  right: 14px;
-  z-index: 9998;
   font-family: 'Pretendard', sans-serif;
   font-size: 11px;
   font-weight: 700;
@@ -708,6 +712,7 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
   gap: 5px;
   transition: all 0.3s;
   pointer-events: none;
+  flex-shrink: 0;
 }
 #syncStatus.syncing { background: #fef3c7; color: #92400e; }
 #syncStatus.saved   { background: #dcfce7; color: #166534; }
@@ -733,7 +738,8 @@ body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-s
   flex-wrap: wrap;
   z-index: 250;
 }
-body.viewer-mode #catFocusBar { display: flex; }
+/* 도면 탭 활성 시에만 표시 (관리자/열람자 모두) */
+body.plan-view-active #catFocusBar { display: flex; }
 .cf-label { font-size: 10px; font-weight: 800; color: #64748b; letter-spacing: .6px; text-transform: uppercase; margin-right: 4px; white-space: nowrap; }
 .cf-btn {
   font-family: 'Pretendard', sans-serif;
@@ -883,10 +889,11 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
     const dot = document.getElementById('syncDot');
     const msgEl = document.getElementById('syncMsg');
     if (!el) return;
-    if (state==='saved')   { el.style.background='#dcfce7'; el.style.color='#166534'; }
-    if (state==='syncing') { el.style.background='#fef3c7'; el.style.color='#92400e'; }
-    if (state==='error')   { el.style.background='#fee2e2'; el.style.color='#991b1b'; }
-    if (state==='offline') { el.style.background='#f3f4f6'; el.style.color='#6b7280'; }
+    // 탭바 다크 배경에 맞는 색상
+    if (state==='saved')   { el.style.background='rgba(34,197,94,.15)';  el.style.color='#4ade80'; }
+    if (state==='syncing') { el.style.background='rgba(251,191,36,.15)'; el.style.color='#fbbf24'; }
+    if (state==='error')   { el.style.background='rgba(239,68,68,.15)';  el.style.color='#f87171'; }
+    if (state==='offline') { el.style.background='rgba(255,255,255,.08)';el.style.color='rgba(255,255,255,.4)'; }
     if (dot) dot.style.animation = state==='syncing' ? 'syncpulse 1s infinite' : 'none';
     if (msgEl) msgEl.textContent = msg;
   }
@@ -992,6 +999,33 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
           }
         }
 
+        // ── 평당매출 데이터 복원 (초기 로드) ──
+        if (data) {
+          if (!window.storeSalesDataMap)      window.storeSalesDataMap      = {};
+          if (!window.storeAreaDataMap)       window.storeAreaDataMap       = {};
+          if (!window.storeManualSalesMap)    window.storeManualSalesMap    = {};
+          if (!window.storeManualAreaMap)     window.storeManualAreaMap     = {};
+          if (!window.storeSalesGroupsMap)    window.storeSalesGroupsMap    = {};
+          if (!window.storeSalesGroupDataMap) window.storeSalesGroupDataMap = {};
+          if (!window.monthlySalesStore)      window.monthlySalesStore      = {};
+          if (data.salesData)      window.storeSalesDataMap[store]      = JSON.parse(JSON.stringify(data.salesData));
+          if (data.areaData)       window.storeAreaDataMap[store]       = JSON.parse(JSON.stringify(data.areaData));
+          if (data.manualTotalSales !== undefined) window.storeManualSalesMap[store] = data.manualTotalSales;
+          if (data.manualTotalArea  !== undefined) window.storeManualAreaMap[store]  = data.manualTotalArea;
+          if (data.salesGroups)    window.storeSalesGroupsMap[store]    = JSON.parse(JSON.stringify(data.salesGroups));
+          if (data.salesGroupData) window.storeSalesGroupDataMap[store] = JSON.parse(JSON.stringify(data.salesGroupData));
+          if (data.monthlySales)   window.monthlySalesStore[store]      = JSON.parse(JSON.stringify(data.monthlySales));
+          // 현재 지점이면 활성 변수에도 즉시 적용
+          if (store === (window.currentStore || 'gs')) {
+            window.salesData        = JSON.parse(JSON.stringify(data.salesData      || {}));
+            window.areaData         = JSON.parse(JSON.stringify(data.areaData       || {}));
+            window.manualTotalSales = data.manualTotalSales || 0;
+            window.manualTotalArea  = data.manualTotalArea  || 0;
+            window.salesGroups      = JSON.parse(JSON.stringify(data.salesGroups    || {}));
+            window.salesGroupData   = JSON.parse(JSON.stringify(data.salesGroupData || {}));
+          }
+        }
+
         // 서버 스냅샷 저장 (diff 계산용)
         if (data && typeof window._updateServerSnapshot === 'function') {
           window._updateServerSnapshot(store, data);
@@ -1058,6 +1092,33 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
         if (typeof omapLoaded !== 'undefined' && omapLoaded && typeof renderOmap === 'function') {
           renderOmap();
         }
+        // ── 평당매출 데이터 실시간 복원 ──
+        if (!window.storeSalesDataMap)      window.storeSalesDataMap      = {};
+        if (!window.storeAreaDataMap)       window.storeAreaDataMap       = {};
+        if (!window.storeManualSalesMap)    window.storeManualSalesMap    = {};
+        if (!window.storeManualAreaMap)     window.storeManualAreaMap     = {};
+        if (!window.storeSalesGroupsMap)    window.storeSalesGroupsMap    = {};
+        if (!window.storeSalesGroupDataMap) window.storeSalesGroupDataMap = {};
+        if (!window.monthlySalesStore)      window.monthlySalesStore      = {};
+        if (data.salesData)      window.storeSalesDataMap[store]      = JSON.parse(JSON.stringify(data.salesData));
+        if (data.areaData)       window.storeAreaDataMap[store]       = JSON.parse(JSON.stringify(data.areaData));
+        if (data.manualTotalSales !== undefined) window.storeManualSalesMap[store] = data.manualTotalSales;
+        if (data.manualTotalArea  !== undefined) window.storeManualAreaMap[store]  = data.manualTotalArea;
+        if (data.salesGroups)    window.storeSalesGroupsMap[store]    = JSON.parse(JSON.stringify(data.salesGroups));
+        if (data.salesGroupData) window.storeSalesGroupDataMap[store] = JSON.parse(JSON.stringify(data.salesGroupData));
+        if (data.monthlySales)   window.monthlySalesStore[store]      = JSON.parse(JSON.stringify(data.monthlySales));
+        window.salesData        = JSON.parse(JSON.stringify(data.salesData      || {}));
+        window.areaData         = JSON.parse(JSON.stringify(data.areaData       || {}));
+        window.manualTotalSales = data.manualTotalSales || 0;
+        window.manualTotalArea  = data.manualTotalArea  || 0;
+        window.salesGroups      = JSON.parse(JSON.stringify(data.salesGroups    || {}));
+        window.salesGroupData   = JSON.parse(JSON.stringify(data.salesGroupData || {}));
+        // 평당매출 탭이 열려있으면 갱신
+        if (typeof renderSalesView === 'function' && document.getElementById('salesWrap') &&
+            document.getElementById('salesWrap').style.display !== 'none') {
+          renderSalesView();
+        }
+
         // 서버 스냅샷 갱신 (diff 계산용)
         if (typeof window._updateServerSnapshot === 'function') {
           window._updateServerSnapshot(store, data);
@@ -1428,6 +1489,9 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
   let _myPresenceRef = null;
   let _presenceListenerUnsubMap = {}; // store → unsubscribe fn
 
+  // 현재 탭 추적
+  window._currentPresenceTab = 'plan';
+
   // presence 등록: 관리자가 특정 지점에 입장
   window._presenceEnter = async function(store) {
     // 기존 presence 제거
@@ -1439,6 +1503,7 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
     const payload = {
       sessionId: _sessionId,
       store: store,
+      tab: window._currentPresenceTab,
       enteredAt: serverTimestamp(),
     };
     await set(presRef, payload);
@@ -1448,6 +1513,21 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
 
     // 해당 지점 presence 실시간 감시
     window._presenceListen(store);
+  };
+
+  // 탭 변경 시 presence 업데이트
+  window._presenceUpdateTab = async function(tab) {
+    window._currentPresenceTab = tab;
+    if (_myPresenceRef) {
+      try {
+        await set(_myPresenceRef, {
+          sessionId: _sessionId,
+          store: window.currentStore,
+          tab: tab,
+          enteredAt: serverTimestamp()
+        });
+      } catch(e){}
+    }
   };
 
   // presence 해제
@@ -1472,8 +1552,9 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
     const unsub = onValue(storePresRef, snap => {
       const data = snap.val();
       if (!data) { window._updatePresenceBanner([]); return; }
-      // 내 세션 제외한 다른 관리자 목록
-      const others = Object.values(data).filter(v => v && v.sessionId !== _sessionId);
+      // 내 세션 제외 + 같은 탭을 편집 중인 사람만 경고
+      const myTab = window._currentPresenceTab || 'plan';
+      const others = Object.values(data).filter(v => v && v.sessionId !== _sessionId && (v.tab || 'plan') === myTab);
       window._updatePresenceBanner(others);
     });
     _presenceListenerUnsubMap[store] = unsub;
@@ -1507,8 +1588,9 @@ body:not(.viewer-mode) #gc.cat-zone-select .zb { cursor: pointer !important; }
       || (typeof storeMap !== 'undefined' && window.currentStore && storeMap[window.currentStore]?.name)
       || window.currentStore || '';
     const count = others.length;
+    const tabLabel = {'plan':'도면','sales':'평당매출','omap':'운영맵'}[window._currentPresenceTab || 'plan'] || window._currentPresenceTab;
     banner.innerHTML =
-      `다른 관리자 <b>${count}명</b>이 <b>${storeName}</b> 지점을 수정 중입니다 — 동시 수정 시 데이터가 덮어씌워질 수 있습니다`;
+      `다른 관리자 <b>${count}명</b>이 <b>${storeName}</b> 지점 <b>[${tabLabel}]</b> 탭을 동시에 수정 중입니다 — 데이터가 덮어씌워질 수 있습니다`;
     banner.style.display = 'flex';
     const _slot = document.getElementById('presenceBannerSlot');
     if (_slot) _slot.style.display = 'flex';
@@ -1550,10 +1632,10 @@ window.onerror = function(msg, src, line, col, err) {
   <button class="zoom-btn" onclick="zoomStep(-0.1)">−</button>
   <span class="zoom-pct" id="zoomPct">100%</span>
   <button class="zoom-btn" onclick="zoomStep(+0.1)">+</button>
-  <button class="zoom-btn" onclick="userZoomed=false;autoScale()" title="화면에 맞춤" style="font-size:12px;">⊡</button>
+  <button class="zoom-btn" onclick="userZoomed=false;localStorage.removeItem('planZoomScale');autoScale()" title="화면에 맞춤" style="font-size:12px;">⊡</button>
 </div>
 <!-- Firebase 동기화 상태 -->
-<div id="syncStatus" style="position:fixed;top:10px;right:14px;z-index:9998;font-family:Pretendard,sans-serif;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;background:#f3f4f6;color:#6b7280"><span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:currentColor"></span><span id="syncMsg">연결 중...</span></div>
+
 <!-- 잠금 오버레이 -->
 <!-- Firebase 초기 로딩 오버레이 -->
 <div id="fbLoadingOverlay" style="position:fixed;inset:0;background:#1a1712;z-index:9997;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
@@ -1668,7 +1750,7 @@ window.onerror = function(msg, src, line, col, err) {
     <h1><em>52주 AI 표준화</em></h1>
     <div class="hdr-sub">52-WEEK SEASONAL PLAN · LAYOUT EDITOR · AI RECOMMEND</div>
   </div>
-  <div class="hdr-r">
+  <div class="hdr-r" id="hdrR" style="visibility:hidden;opacity:0;transition:opacity .2s;">
     <div class="store-dropdown-wrap">
       <select id="storeSelect" class="store-select" onchange="switchStore(this.value)">
         <optgroup label="모델점">
@@ -1688,19 +1770,19 @@ window.onerror = function(msg, src, line, col, err) {
           <option value="rdw">구의점</option>
         </optgroup>
       </select>
-      <button class="btn btn-gh" onclick="openAddStoreModal()" title="새 지점 추가">＋</button>
-      <button class="btn btn-gh" onclick="openRenameStoreModal()" title="지점명 수정">✏️</button>
-      <button class="btn btn-gh" onclick="confirmDeleteStore()" title="현재 지점 삭제" style="color:#dc2626;">🗑</button>
-    </div><span class="badge b-edit" id="modeTag">편집</span>
-    <button class="btn btn-gh" onclick="toggleMode()">보기</button>
+      <button class="btn btn-gh admin-only" onclick="openAddStoreModal()" title="새 지점 추가">＋</button>
+      <button class="btn btn-gh admin-only" onclick="openRenameStoreModal()" title="지점명 수정">✏️</button>
+      <button class="btn btn-gh admin-only" onclick="confirmDeleteStore()" title="현재 지점 삭제" style="color:#dc2626;">🗑</button>
+    </div><span class="badge b-edit admin-only" id="modeTag">편집</span>
+    <button class="btn btn-gh admin-only" onclick="toggleMode()">보기</button>
     <button class="btn btn-gh admin-only" onclick="openAddModal()">＋ 구역</button>
     <button class="btn btn-g admin-only" onclick="toggleDrawToolbar()" id="drawModeBtn" style="background:#1e40af;">✏️ 그리기</button>
     <button class="btn btn-g admin-only" onclick="toggleCatRegionToolbar()" id="catRegionBtn" style="background:#4f46e5;">📦 카테고리영역</button>
-    <button class="btn btn-gh" onclick="resetLayout()">↺ 초기화</button>
-    <button class="btn btn-gh" onclick="document.getElementById('jsonLoadInput').click()">JSON 불러오기</button>
+    <button class="btn btn-gh admin-only" onclick="resetLayout()">↺ 초기화</button>
+    <button class="btn btn-gh admin-only" onclick="document.getElementById('jsonLoadInput').click()">JSON 불러오기</button>
     <input type="file" id="jsonLoadInput" accept=".json" style="display:none" onchange="loadJSON(this)"/>
     <!-- 저장 드롭다운 -->
-    <div style="position:relative;display:inline-block;" id="saveDropWrap">
+    <div style="position:relative;display:inline-block;" id="saveDropWrap" class="admin-only">
       <button class="btn btn-g" onclick="toggleSaveDrop(event)" style="display:flex;align-items:center;gap:5px;">
         저장 <span style="font-size:9px;opacity:.8;">▼</span>
       </button>
@@ -1740,12 +1822,43 @@ window.onerror = function(msg, src, line, col, err) {
     <button class="btn btn-gh" id="adminMonthBtn" onclick="openMonthModal()" style="display:none">공개 설정</button>
     <button class="btn btn-gh" id="adminLogoutBtn" onclick="backToHome()" style="display:none;background:#374151">로그아웃</button>
     <button class="btn btn-gh" id="backToHomeBtn" onclick="backToHome()" style="display:none;font-size:11px;opacity:.8">처음으로</button>
+    <!-- syncStatus는 viewTabBar 오른쪽으로 이동 -->
   </div>
 </div>
 <!-- 동시 편집 경고 배너 — 헤더 바로 아래 한 줄 -->
+<!-- ══ 최상위 뷰 탭 바 (도면/평당매출/운영맵) ══ -->
+<div id="viewTabBar" style="background:#1a1f2e;border-bottom:2px solid #2d3748;padding:0 14px;display:flex;align-items:center;gap:0;flex-shrink:0;z-index:300;">
+  <button id="tabPlan" onclick="switchView('plan')"
+    style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-bottom:3px solid #3a8c3a;background:transparent;color:#fff;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:-.2px;">
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="opacity:.9"><rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.6"/></svg>
+    도면
+  </button>
+  <button id="tabSales" onclick="switchView('sales')"
+    style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:rgba(255,255,255,.45);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:-.2px;">
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="opacity:.7"><path d="M1 13 L1 8 L4 8 L4 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 13 L5.5 5 L8.5 5 L8.5 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 13 L10 2 L13 2 L13 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    평당매출
+  </button>
+  <button id="tabOmap" onclick="switchView('omap')"
+    style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:rgba(255,255,255,.45);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:-.2px;">
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="opacity:.7"><rect x="1" y="1" width="12" height="2" rx="1" fill="currentColor"/><rect x="1" y="5" width="8" height="1.5" rx=".75" fill="currentColor"/><rect x="1" y="8" width="10" height="1.5" rx=".75" fill="currentColor"/><rect x="1" y="11" width="6" height="1.5" rx=".75" fill="currentColor"/></svg>
+    운영맵
+  </button>
+  <!-- 동기화 상태 — 탭바 오른쪽 끝 -->
+  <div id="syncStatus" style="margin-left:auto;font-family:Pretendard,sans-serif;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);pointer-events:none;flex-shrink:0;transition:all .3s;">
+    <span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;"></span>
+    <span id="syncMsg">연결 중...</span>
+  </div>
+</div>
 <div id="presenceBannerSlot" style="display:none;background:#dc2626;border-bottom:2px solid #991b1b;padding:6px 16px;flex-direction:row;align-items:center;justify-content:center;gap:8px;flex-shrink:0;">
   <span style="font-size:14px;flex-shrink:0;">⚠️</span>
   <div id="presenceBanner" style="color:#fff;font-family:Pretendard,Apple SD Gothic Neo,sans-serif;font-size:12px;font-weight:800;display:flex;align-items:center;gap:4px;"></div>
+</div>
+<!-- 평당매출 탭 전용: 월별 탭 바 -->
+<div id="salesMonthNav">
+  <div style="display:flex;align-items:center;gap:0;padding:0 10px 0 14px;border-bottom:1px solid var(--border);min-height:36px;">
+    <span style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-right:8px;white-space:nowrap;">📅 월별 보기</span>
+    <div id="salesNavMonths" style="display:flex;overflow-x:auto;flex:1;scrollbar-width:none;"></div>
+  </div>
 </div>
 <div class="nav">
   <!-- Row 1: [W14][4월1주] 월탭(바로붙음) + AI추천 + 화살표 -->
@@ -1770,16 +1883,14 @@ window.onerror = function(msg, src, line, col, err) {
     </div>
   </div>
 </div>
-
-<!-- 빠른 그리기 도구 -->
-<!-- 카테고리 확대보기 바 (열람자 모드) -->
+<!-- 카테고리 이동 바 — 도면 탭 + nav 아래 표시 -->
 <div id="catFocusBar">
   <span class="cf-label">📍 카테고리 이동</span>
   <button class="cf-btn cf-all active" id="cfBtn_all" onclick="catFocusSelect('all')">전체보기</button>
-  <!-- 동적으로 채워짐 -->
   <span id="cfDynamicBtns" style="display:contents;"></span>
 </div>
 
+<!-- 빠른 그리기 도구 -->
 <!-- 카테고리 영역 편집 툴바 (관리자 모드) — zone 블록 선택 방식 -->
 <div id="catRegionToolbar">
   <span class="crt-label">📦 카테고리 영역 지정</span>
@@ -1831,8 +1942,8 @@ window.onerror = function(msg, src, line, col, err) {
       style="background:#334155;color:#e2e8f0;border-color:#475569;padding:5px 9px;font-size:14px;" title="시계 90°">↻</button>
   </div>
   <div class="draw-sep"></div>
-  <!-- 카테고리 위치 -->
-  <div class="draw-section" style="gap:4px;">
+  <!-- 카테고리 위치 (도면 탭 전용 — 열람모드 숨김) -->
+  <div class="draw-section admin-only" style="gap:4px;">
     <span class="draw-label">🏷 카테고리위치</span>
     <button id="catBtn_tl" class="draw-btn" onclick="setCatPos('tl')"
       style="background:rgba(255,255,255,.25);color:#fff;border-color:#94a3b8;padding:5px 8px;font-size:13px;" title="좌상단">↖</button>
@@ -1843,7 +1954,7 @@ window.onerror = function(msg, src, line, col, err) {
     <button id="catBtn_br" class="draw-btn" onclick="setCatPos('br')"
       style="background:#334155;color:#e2e8f0;border-color:#475569;padding:5px 8px;font-size:13px;" title="우하단">↘</button>
   </div>
-  <div class="draw-sep"></div>
+  <div class="draw-sep admin-only"></div>
   <!-- 전체 글자 회전 -->
   <div class="draw-section" style="gap:4px;">
     <span class="draw-label">🔤 글자회전</span>
@@ -1897,25 +2008,7 @@ window.onerror = function(msg, src, line, col, err) {
   <span class="thint" id="tbHint">구역 클릭 → 선택 / Ctrl+클릭 → 다중 선택 / 드래그 → 이동</span>
 </div>
 
-<!-- 도면 / 운영맵 탭 바 -->
-<div id="viewTabBar" style="background:#1a1f2e;border-bottom:2px solid #2d3748;padding:0 14px;display:flex;align-items:center;gap:0;flex-shrink:0;z-index:100;">
-  <button id="tabPlan" onclick="switchView('plan')"
-    style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-bottom:3px solid #3a8c3a;background:transparent;color:#fff;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:-.2px;">
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="opacity:.9"><rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.6"/></svg>
-    도면
-  </button>
-  <button id="tabSales" onclick="switchView('sales')"
-    style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:rgba(255,255,255,.45);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:-.2px;">
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="opacity:.7"><path d="M1 13 L1 8 L4 8 L4 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 13 L5.5 5 L8.5 5 L8.5 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 13 L10 2 L13 2 L13 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    평당매출
-  </button>
-  <button id="tabOmap" onclick="switchView('omap')"
-    style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:rgba(255,255,255,.45);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:-.2px;">
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="opacity:.7"><rect x="1" y="1" width="12" height="2" rx="1" fill="currentColor"/><rect x="1" y="5" width="8" height="1.5" rx=".75" fill="currentColor"/><rect x="1" y="8" width="10" height="1.5" rx=".75" fill="currentColor"/><rect x="1" y="11" width="6" height="1.5" rx=".75" fill="currentColor"/></svg>
-    운영맵
-  </button>
-</div>
-<!-- 동시 편집 알림 배너 — 탭바 바로 아래 -->
+<!-- 동시 편집 알림 배너 -->
 
 <!-- MAIN -->
 <div class="main-wrap" id="planView">
@@ -3207,6 +3300,9 @@ function render(){
   const maxR=Math.max(...zones.map(z=>z.row+z.rows),24) + canvasExtraR;
   gc.style.width=(maxC*(CELL+GAP)+GAP+16)+'px';
   gc.style.height=(maxR*(ROW+GAP)+GAP+16)+'px';
+  // ★ 평당매출 탭용 크기 저장 (display:none 상태에서도 style은 유효)
+  window._gcLastKnownW = maxC*(CELL+GAP)+GAP+16;
+  window._gcLastKnownH = maxR*(ROW+GAP)+GAP+16;
 
   // 픽셀 드래그 방식 — drop-cell 그리드 불필요
 
@@ -3370,7 +3466,12 @@ function autoScale(){
   const gc    = document.getElementById('gc');
   if(!area||!scaler||!gc) return;
   if(userZoomed){ applyScale(); return; }
-  if(true){ curScale = 0.60; userZoomed = true; applyScale(); return; } // 전 점포 초기 60%
+  // userZoomed=false 일 때만 자동 스케일 계산 (⊡ 버튼 or 회전 시)
+  // localStorage에 저장된 줌이 있으면 복원
+  const _savedScale = parseFloat(localStorage.getItem('planZoomScale'));
+  if (_savedScale && _savedScale >= 0.2 && _savedScale <= 2.0) {
+    curScale = _savedScale; userZoomed = true; applyScale(); return;
+  }
   const PAD = 32; // 상하좌우 동일 여백
   const aw = area.clientWidth  - PAD * 2;
   const ah = area.clientHeight - PAD * 2;
@@ -3428,15 +3529,34 @@ function applyScale(){
   gc.style.transformOrigin = 'center center';
   gc.style.transform       = rot ? `rotate(${rot}deg)` : '';
 
+  window.curScale = curScale;
   document.getElementById('zoomPct').textContent = Math.round(curScale*100)+'%';
   const b = document.getElementById('canvasRotBadge');
   if(b) b.textContent = rot + '°';
   if(typeof positionZoomCtrl === 'function') positionZoomCtrl();
+  // ★ gc 실제 크기를 전역에 저장 (gw=0이면 display:none 상태 → 저장 스킵)
+  if (gw > 0 && gh > 0) {
+    window._gcLastKnownW  = gw;
+    window._gcLastKnownH  = gh;
+    window._gcLastKnownBW = bw;
+    window._gcLastKnownBH = bh;
+  }
+  // 탭 복귀 시 저장된 스크롤 복원
+  if (window._restorePlanScroll) {
+    const _sl = window._restorePlanScroll.left;
+    const _st = window._restorePlanScroll.top;
+    window._restorePlanScroll = null;
+    requestAnimationFrame(function() {
+      area.scrollLeft = _sl;
+      area.scrollTop  = _st;
+    });
+  }
 }
 
 function zoomStep(delta){
   userZoomed = true;
   curScale = Math.min(Math.max(curScale + delta, 0.2), 2.0);
+  localStorage.setItem('planZoomScale', curScale);
   applyScale();
 }
 
@@ -3450,10 +3570,42 @@ function positionZoomCtrl(){
   ctrl.style.left = (r.right - ctrl.offsetWidth - 12) + 'px';
 }
 window.addEventListener('resize', positionZoomCtrl);
+// 도면 스크롤 → 평당매출 실시간 동기화
+document.addEventListener('DOMContentLoaded', function() {
+  const planArea = document.getElementById('canvasArea');
+  if (!planArea) return;
+  planArea._syncingScroll = false;
+  planArea.addEventListener('scroll', function() {
+    if (planArea._syncingScroll) return;
+    const salArea = document.getElementById('salesMapCol');
+    if (!salArea) return;
+    const maxPX = Math.max(1, planArea.scrollWidth  - planArea.clientWidth);
+    const maxPY = Math.max(1, planArea.scrollHeight - planArea.clientHeight);
+    const maxSX = Math.max(1, salArea.scrollWidth  - salArea.clientWidth);
+    const maxSY = Math.max(1, salArea.scrollHeight - salArea.clientHeight);
+    salArea._syncingScroll = true;
+    salArea.scrollLeft = (planArea.scrollLeft / maxPX) * maxSX;
+    salArea.scrollTop  = (planArea.scrollTop  / maxPY) * maxSY;
+    setTimeout(function(){ salArea._syncingScroll = false; }, 50);
+  });
+});
 // 초기 배치 + planView 전환 시 재배치
 document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(positionZoomCtrl, 100); });
 
 // 마우스 휠 줌
+// canvasArea 스크롤 시 비율 실시간 저장 (탭 전환 시 정확한 위치 복원용)
+document.getElementById('canvasArea')?.addEventListener('scroll', function(e) {
+  // 복원 잠금 중이면 저장 스킵
+  if (window._planScrollRestoreLock) return;
+  const area = e.currentTarget;
+  const maxX = area.scrollWidth  - area.clientWidth;
+  const maxY = area.scrollHeight - area.clientHeight;
+  window._savedPlanScrollRatioX = maxX > 0 ? area.scrollLeft / maxX : 0;
+  window._savedPlanScrollRatioY = maxY > 0 ? area.scrollTop  / maxY : 0;
+  window._savedPlanScrollLeft   = area.scrollLeft;
+  window._savedPlanScrollTop    = area.scrollTop;
+}, { passive: true });
+
 document.getElementById('canvasArea')?.addEventListener('wheel', e=>{
   if(e.ctrlKey || e.metaKey){
     e.preventDefault();
@@ -5570,6 +5722,8 @@ function tryLogin(){
   if(document.getElementById('pwInput').value === ADMIN_PW){
     isAdmin=true; isViewer=false;
     document.getElementById('lockOverlay').style.display='none';
+    const _hdrA = document.getElementById('hdrR');
+    if (_hdrA) { _hdrA.style.visibility='visible'; _hdrA.style.opacity='1'; }
     document.getElementById('adminMonthBtn').style.display='';
     document.getElementById('adminLogoutBtn').style.display='';
     document.getElementById('backToHomeBtn').style.display='none';
@@ -5606,6 +5760,8 @@ function enterViewer(){
   isViewer=true; isAdmin=false;
   document.body.classList.add('viewer-mode');
   document.getElementById('lockOverlay').style.display='none';
+  const _hdrV = document.getElementById('hdrR');
+  if (_hdrV) { _hdrV.style.visibility='visible'; _hdrV.style.opacity='1'; }
   document.getElementById('adminMonthBtn').style.display='none';
   document.getElementById('adminLogoutBtn').style.display='none';
   document.getElementById('backToHomeBtn').style.display='';
@@ -5652,6 +5808,8 @@ function backToHome(){
   if(_sw3) _sw3.style.display='none';
   if(_sh3) _sh3.style.display='none';
   document.getElementById('lockOverlay').style.display='flex';
+  const _hdrB = document.getElementById('hdrR');
+  if (_hdrB) { _hdrB.style.visibility='hidden'; _hdrB.style.opacity='0'; }
   document.getElementById('pwInput').value='';
   document.getElementById('lockErr').textContent='';
   document.getElementById('lockHint').style.color='';
@@ -5757,6 +5915,19 @@ window._getSavePayload = function(store) {
   var savePos = storeCatTagPos[store] || 'tl';
 
   var allNames = window.storeNames || storeNames;
+
+  // ── 평당매출 데이터 수집 ──
+  var saveSalesData      = isCurrent ? JSON.parse(JSON.stringify(window.salesData      || {})) : JSON.parse(JSON.stringify((window.storeSalesDataMap      && window.storeSalesDataMap[store])      || {}));
+  var saveAreaData       = isCurrent ? JSON.parse(JSON.stringify(window.areaData       || {})) : JSON.parse(JSON.stringify((window.storeAreaDataMap       && window.storeAreaDataMap[store])       || {}));
+  var saveManualSales    = isCurrent ? (window.manualTotalSales || 0)                          : ((window.storeManualSalesMap && window.storeManualSalesMap[store]) || 0);
+  var saveManualArea     = isCurrent ? (window.manualTotalArea  || 0)                          : ((window.storeManualAreaMap  && window.storeManualAreaMap[store])  || 0);
+  var saveSalesGroups    = isCurrent ? JSON.parse(JSON.stringify(window.salesGroups    || {})) : JSON.parse(JSON.stringify((window.storeSalesGroupsMap    && window.storeSalesGroupsMap[store])    || {}));
+  var saveSalesGroupData = isCurrent ? JSON.parse(JSON.stringify(window.salesGroupData || {})) : JSON.parse(JSON.stringify((window.storeSalesGroupDataMap && window.storeSalesGroupDataMap[store]) || {}));
+
+  // ── 월별 평당매출 데이터 ──
+  if (!window.monthlySalesStore) window.monthlySalesStore = {};
+  var saveMonthlySales = JSON.parse(JSON.stringify(window.monthlySalesStore[store] || {}));
+
   const payload = {
     name:           allNames[store] || store,
     zones:          saveZones,
@@ -5766,6 +5937,13 @@ window._getSavePayload = function(store) {
     canvasRotation: saveRot,
     textRotation:   saveTxt,
     catTagPos:      savePos,
+    salesData:      saveSalesData,
+    areaData:       saveAreaData,
+    manualTotalSales: saveManualSales,
+    manualTotalArea:  saveManualArea,
+    salesGroups:    saveSalesGroups,
+    salesGroupData: saveSalesGroupData,
+    monthlySales:   saveMonthlySales,
     savedAt:        Date.now()
   };
   console.log('[PAYLOAD]', store, '| canvasRotation:', payload.canvasRotation, '| textRotation:', payload.textRotation, '| catTagPos:', payload.catTagPos);
@@ -7352,9 +7530,14 @@ function switchStore(store) {
   const select = document.getElementById('storeSelect');
   if (select) select.value = store;
   selId = null;
-  // 점포별 초기 줌 비율 설정
-  curScale = 0.60; // 전 점포 초기 60%
+  // 점포별 줌: localStorage에 저장된 값 복원, 없으면 60%
+  { const _ss = parseFloat(localStorage.getItem('planZoomScale'));
+    curScale = (_ss && _ss >= 0.2 && _ss <= 2.0) ? _ss : 0.60; }
   userZoomed = true;
+  // 지점 변경 시: 저장된 스크롤 초기화 → 입구 포커싱 우선
+  window._restorePlanScroll = null;
+  window._savedPlanScrollRatioX = undefined;
+  window._savedPlanScrollRatioY = undefined;
   render(); applyScale(); renderPanel(); renderNav();
   setTimeout(_panToEntrance, 80);
   const _b = document.getElementById('canvasRotBadge');
@@ -7385,9 +7568,11 @@ function switchStore(store) {
   window.salesGroups     = Object.assign({}, (window.storeSalesGroupsMap    && window.storeSalesGroupsMap[store])    || {});
   window.salesGroupData  = Object.assign({}, (window.storeSalesGroupDataMap && window.storeSalesGroupDataMap[store]) || {});
 
-  // 평당매출 탭이 열려 있으면 새 지점으로 갱신
+  // 평당매출 탭이 열려 있으면 새 지점으로 갱신 + 입구로 이동
   if (typeof renderSalesView === 'function' && document.getElementById('salesWrap') &&
       document.getElementById('salesWrap').style.display !== 'none') {
+    // 지점 변경 시: 입구 포커싱 플래그 먼저 세팅 (renderSalesView 안에서 소비됨)
+    window._salesPanToEntrance = true;
     renderSalesView();
   }
 }
@@ -7415,9 +7600,9 @@ function canvasRotate(delta, mode){
   storeRotations[currentStore] = next;
   if(window.storeRotations) window.storeRotations[currentStore] = next;
   console.log('[ROTATE] 회전 설정:', currentStore, next + '°');
-  userZoomed = false;
+  // 회전 시 현재 줌 레벨 유지 (userZoomed 리셋 안 함)
   render();
-  autoScale();
+  applyScale();
   const b=document.getElementById('canvasRotBadge');
   if(b) b.textContent=next+'°';
   showToast('도면 '+next+'° 회전');
@@ -7548,6 +7733,10 @@ window._renderOnReady = function() {
   // (3초 타임아웃 오발로 하드코딩 데이터가 잠기는 문제 방지)
   const isFirebaseLoad = !window._appReady;
   window._appReady = true;
+  // 초기 진입은 도면 탭이 기본 → plan-view-active 클래스 설정
+  document.body.classList.add('plan-view-active');
+  document.body.classList.remove('sales-view-active');
+  document.body.classList.remove('omap-view-active');
 
   // Firebase 로딩 오버레이 제거
   const overlay = document.getElementById('fbLoadingOverlay');
@@ -7579,8 +7768,9 @@ window._renderOnReady = function() {
     catTagPos     = _rd[currentStore].catTagPos    || 'tl';
   }
 
-  // 화면 렌더링
-  curScale = 0.60; // 전 점포 초기 60%
+  // 화면 렌더링: localStorage 줌 복원, 없으면 60%
+  { const _ss = parseFloat(localStorage.getItem('planZoomScale'));
+    curScale = (_ss && _ss >= 0.2 && _ss <= 2.0) ? _ss : 0.60; }
   userZoomed = true;
   render();
   // rotation이 복원된 후 applyScale을 즉시 + 다음 프레임에 한 번 더 호출
@@ -8007,6 +8197,30 @@ function switchView(view) {
   const tabOmap   = document.getElementById('tabOmap');
   const tabSales  = document.getElementById('tabSales');
 
+  // ★ display:none 하기 전에 현재 탭 스크롤을 즉시 저장 (숨기면 scrollLeft=0이 됨)
+  (function() {
+    // 현재 평당매출 탭이 보이는 상태라면 → 평당매출 스크롤 저장
+    const salArea = document.getElementById('salesMapCol');
+    if (salesWrap && salesWrap.style.display !== 'none' && salArea && salArea.offsetParent !== null) {
+      const maxSX = Math.max(1, salArea.scrollWidth  - salArea.clientWidth);
+      const maxSY = Math.max(1, salArea.scrollHeight - salArea.clientHeight);
+      window._savedSalesScrollRatioX = salArea.scrollLeft / maxSX;
+      window._savedSalesScrollRatioY = salArea.scrollTop  / maxSY;
+      window._savedSalesScrollLeft   = salArea.scrollLeft;
+      window._savedSalesScrollTop    = salArea.scrollTop;
+    }
+    // 현재 도면 탭이 보이는 상태라면 → 도면 스크롤 저장
+    const planArea = document.getElementById('canvasArea');
+    if (planView && planView.style.display !== 'none' && planArea && planArea.offsetParent !== null) {
+      const maxX = Math.max(1, planArea.scrollWidth  - planArea.clientWidth);
+      const maxY = Math.max(1, planArea.scrollHeight - planArea.clientHeight);
+      window._savedPlanScrollRatioX = planArea.scrollLeft / maxX;
+      window._savedPlanScrollRatioY = planArea.scrollTop  / maxY;
+      window._savedPlanScrollLeft   = planArea.scrollLeft;
+      window._savedPlanScrollTop    = planArea.scrollTop;
+    }
+  })();
+
   const ON_G  = 'border-bottom:3px solid #3a8c3a;color:#fff;';
   const ON_Y  = 'border-bottom:3px solid #e8c840;color:#e8c840;';
   const ON_O  = 'border-bottom:3px solid #f97316;color:#f97316;';
@@ -8026,8 +8240,67 @@ function switchView(view) {
     setTimeout(positionZoomCtrl, 50);
     const szb = document.getElementById('salesZoomBar');
     if (szb) szb.style.display = 'none';
+    document.body.classList.add('plan-view-active');
+    document.body.classList.remove('sales-view-active');
+    document.body.classList.remove('omap-view-active');
+    if (window._presenceUpdateTab) window._presenceUpdateTab('plan');
+    // 평당매출에서 보던 월을 도면에도 동기화
+    // ── 평당매출 스크롤은 switchView 시작부에서 이미 저장됨 ──
+    // ── 도면 스크롤 복원 ──
+    // 저장된 비율 우선, 없으면 절대값 fallback
+    const _prx = window._savedPlanScrollRatioX;
+    const _pry = window._savedPlanScrollRatioY;
+    const _psl = window._savedPlanScrollLeft;
+    const _pst = window._savedPlanScrollTop;
+    window._savedPlanScrollRatioX = undefined;
+    window._savedPlanScrollRatioY = undefined;
+    window._savedPlanScrollLeft   = undefined;
+    window._savedPlanScrollTop    = undefined;
+    window._restorePlanScroll     = null;
+
+    if (_prx !== undefined) {
+      window._planScrollRestoreLock = true;
+      setTimeout(function() {
+        const planArea = document.getElementById('canvasArea');
+        if (planArea) {
+          const maxX = Math.max(1, planArea.scrollWidth  - planArea.clientWidth);
+          const maxY = Math.max(1, planArea.scrollHeight - planArea.clientHeight);
+          planArea.scrollLeft = Math.round(_prx * maxX);
+          planArea.scrollTop  = Math.round(_pry * maxY);
+        }
+        setTimeout(function() { window._planScrollRestoreLock = false; }, 200);
+      }, 80);
+    } else if (_psl !== undefined) {
+      window._planScrollRestoreLock = true;
+      setTimeout(function() {
+        const planArea = document.getElementById('canvasArea');
+        if (planArea) { planArea.scrollLeft = _psl; planArea.scrollTop = _pst; }
+        setTimeout(function() { window._planScrollRestoreLock = false; }, 200);
+      }, 80);
+    }
+    // 월 동기화 (jumpToMonth → render → applyScale 순 실행, applyScale에서 스크롤 복원)
+    if (window.currentSalesMonth !== null && window.currentSalesMonth !== undefined
+        && window.currentSalesMonth !== curMonthIdx) {
+      if (typeof jumpToMonth === 'function') jumpToMonth(window.currentSalesMonth);
+    } else {
+      // 월이 같아도 applyScale 한 번 실행해서 스크롤 복원 트리거
+      if (typeof applyScale === 'function') applyScale();
+    }
 
   } else if (view === 'sales') {
+    // ★ planView 숨기기 전에 gc 크기 미리 저장 (도면 스크롤은 switchView 시작부에서 이미 저장됨)
+    (function() {
+      const _gc  = document.getElementById('gc');
+      const _gcs = document.getElementById('gcScaler');
+      if (_gc && _gc.offsetWidth) {
+        window._gcLastKnownW  = _gc.offsetWidth;
+        window._gcLastKnownH  = _gc.offsetHeight;
+        if (_gcs) {
+          window._gcLastKnownBW = parseFloat(_gcs.style.width)  || _gc.offsetWidth;
+          window._gcLastKnownBH = parseFloat(_gcs.style.height) || _gc.offsetHeight;
+        }
+      }
+    })();
     planView.style.display  = 'none';
     omapWrap.style.display  = 'none';
     salesWrap.style.display = 'flex';
@@ -8035,7 +8308,58 @@ function switchView(view) {
     tabOmap.style.cssText   = BASE + OFF;
     if(tabSales) tabSales.style.cssText = BASE + ON_O;
     if(zc) zc.style.display = 'none';
+    document.body.classList.remove('plan-view-active');
+    document.body.classList.add('sales-view-active');
+    document.body.classList.remove('omap-view-active');
+    if (window._presenceUpdateTab) window._presenceUpdateTab('sales');
+    renderSalesMonthNav();
+    // 평당매출 탭 진입 시: 도면에서 보던 월을 항상 그대로 이어받음
+    {
+      const syncMonth = (typeof curMonthIdx !== 'undefined') ? curMonthIdx : null;
+      if (syncMonth !== null && syncMonth !== undefined) {
+        window.currentSalesMonth = syncMonth;
+        const _md = getSalesMonthData(syncMonth);
+        window.salesData      = JSON.parse(JSON.stringify(_md.salesData));
+        window.areaData       = JSON.parse(JSON.stringify(_md.areaData));
+        window.salesGroups    = JSON.parse(JSON.stringify(_md.salesGroups));
+        window.salesGroupData = JSON.parse(JSON.stringify(_md.salesGroupData));
+      }
+    }
+    renderSalesMonthNav();
+    // ── 도면 스크롤 비율 → pending에 복사 (switchView 시작부에서 저장된 값 사용) ──
+    window._pendingPlanRatioX = window._savedPlanScrollRatioX;
+    window._pendingPlanRatioY = window._savedPlanScrollRatioY;
     renderSalesView();
+    // ── 평당매출 스크롤 복원 ──
+    if (!window._salesPanToEntrance) {
+      // 복원할 비율: 도면에서 저장한 비율 사용 (salesMapCol scroll로 덮어써진 0이 아님)
+      const _rx = window._pendingPlanRatioX;
+      const _ry = window._pendingPlanRatioY;
+      const _hasSalesRatio = window._savedSalesScrollRatioX !== undefined
+                          && (window._savedSalesScrollRatioX > 0 || window._savedSalesScrollRatioY > 0);
+
+      if (_hasSalesRatio) {
+        // 평당매출 → 도면 → 평당매출: 이전에 보던 위치로 복원
+        const _srx = window._savedSalesScrollRatioX;
+        const _sry = window._savedSalesScrollRatioY;
+        window._savedSalesScrollRatioX = undefined;
+        window._savedSalesScrollRatioY = undefined;
+        // applySalesScale 완료 직후 즉시 복원 (딜레이 없음)
+        window._salesScrollRestoreLock = true;
+        window._pendingSalesScrollRestore = { rx: _srx, ry: _sry };
+      } else if (_rx !== undefined && (_rx > 0 || _ry > 0)) {
+        // 도면 → 평당매출 최초 진입: 도면 위치에 맞게 동기화
+        window._pendingPlanRatioX = undefined;
+        window._pendingPlanRatioY = undefined;
+        window._salesScrollRestoreLock = true;
+        window._pendingSalesScrollRestore = { rx: _rx, ry: _ry };
+      }
+    } else {
+      window._savedSalesScrollRatioX = undefined;
+      window._savedSalesScrollRatioY = undefined;
+      window._pendingPlanRatioX = undefined;
+      window._pendingPlanRatioY = undefined;
+    }
 
   } else {
     planView.style.display  = 'none';
@@ -8045,6 +8369,10 @@ function switchView(view) {
     tabOmap.style.cssText   = BASE + ON_Y;
     if(tabSales) tabSales.style.cssText = BASE + OFF;
     if(zc) zc.style.display = 'none';
+    document.body.classList.remove('plan-view-active');
+    document.body.classList.remove('sales-view-active');
+    document.body.classList.add('omap-view-active');
+    if (window._presenceUpdateTab) window._presenceUpdateTab('omap');
     const szb2 = document.getElementById('salesZoomBar');
     if (szb2) szb2.style.display = 'none';
     if (!omapLoaded) {
@@ -8192,6 +8520,8 @@ function calcSalesMetrics() {
   const nonSales = new Set(['입구','기둥']);
   const dataZones = zones.filter(z =>
     !nonSales.has(z.name) &&
+    !nonSales.has(z.type) &&        // type='기둥'도 제외
+    z.type !== '벽부' &&             // type='벽부'도 제외
     !String(z.color).startsWith('ent') &&
     z.color !== 'cpillar'
   );
@@ -8244,10 +8574,265 @@ function fmtM(n) { return n >= 10000 ? Math.round(n/10000)+'억' : n >= 1000 ? M
 function fmtPct(n) { return Math.round(n*100)+'%'; }
 function fmtEff(n) { return Math.round(n * 10) / 10; }
 
+/* ── 월별 평당매출: 기존 MONTHS(idx 0-11) 연동 ── */
+// currentSalesMonth: null=종합, 0~11=해당 월 인덱스 (MONTHS[idx].idx 와 동일)
+window.currentSalesMonth = (window.currentSalesMonth !== undefined) ? window.currentSalesMonth : null;
+
+/* ── 월 인덱스 → 스토어 키 변환 ── */
+function _salesMonthKey(idx) {
+  return 'm' + idx; // 'm0' ~ 'm11'
+}
+
+/* ── 월별 데이터 로드 ── */
+function getSalesMonthData(monthIdx) {
+  if (monthIdx === null || monthIdx === undefined) {
+    return { salesData: window.salesData || {}, areaData: window.areaData || {}, salesGroups: window.salesGroups || {}, salesGroupData: window.salesGroupData || {} };
+  }
+  if (!window.monthlySalesStore) window.monthlySalesStore = {};
+  if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
+  const md = window.monthlySalesStore[currentStore][_salesMonthKey(monthIdx)] || {};
+  return {
+    salesData:      md.salesData      || {},
+    areaData:       md.areaData       || {},
+    salesGroups:    md.salesGroups    || {},
+    salesGroupData: md.salesGroupData || {}
+  };
+}
+
+/* ── 현재 활성 데이터를 월별로 저장 + Firebase 동기화 ── */
+function saveSalesMonthData(monthIdx) {
+  if (monthIdx === null || monthIdx === undefined) return;
+  if (!window.monthlySalesStore) window.monthlySalesStore = {};
+  if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
+  window.monthlySalesStore[currentStore][_salesMonthKey(monthIdx)] = {
+    salesData:      JSON.parse(JSON.stringify(window.salesData      || {})),
+    areaData:       JSON.parse(JSON.stringify(window.areaData       || {})),
+    salesGroups:    JSON.parse(JSON.stringify(window.salesGroups    || {})),
+    salesGroupData: JSON.parse(JSON.stringify(window.salesGroupData || {}))
+  };
+  // map 백업
+  if (!window.storeSalesDataMap)      window.storeSalesDataMap      = {};
+  if (!window.storeAreaDataMap)       window.storeAreaDataMap       = {};
+  if (!window.storeSalesGroupsMap)    window.storeSalesGroupsMap    = {};
+  if (!window.storeSalesGroupDataMap) window.storeSalesGroupDataMap = {};
+  window.storeSalesDataMap[currentStore]      = JSON.parse(JSON.stringify(window.salesData      || {}));
+  window.storeAreaDataMap[currentStore]       = JSON.parse(JSON.stringify(window.areaData       || {}));
+  window.storeSalesGroupsMap[currentStore]    = JSON.parse(JSON.stringify(window.salesGroups    || {}));
+  window.storeSalesGroupDataMap[currentStore] = JSON.parse(JSON.stringify(window.salesGroupData || {}));
+  if (typeof syncToFirebase === 'function') syncToFirebase();
+}
+
+/* ── 평당매출 전용 월별 탭 렌더 (상단 salesMonthNav) ── */
+function renderSalesMonthNav() {
+  const container = document.getElementById('salesNavMonths');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // "종합" 버튼
+  const curMon = window.currentSalesMonth;
+  const allBtn = document.createElement('button');
+  allBtn.className = 'mo-tab' + (curMon === null || curMon === undefined ? ' active' : '');
+  allBtn.textContent = '종합';
+  allBtn.onclick = function() { switchSalesMonth(null); renderSalesMonthNav(); };
+  container.appendChild(allBtn);
+
+  // 1월 ~ 12월
+  (typeof MONTHS !== 'undefined' ? MONTHS : []).forEach(function(m) {
+    const hasData = (function() {
+      if (!window.monthlySalesStore || !window.monthlySalesStore[currentStore]) return false;
+      const md = window.monthlySalesStore[currentStore]['m' + m.idx];
+      return md && (Object.keys(md.salesData || {}).length > 0 || Object.keys(md.salesGroupData || {}).length > 0);
+    })();
+    const isActive = curMon === m.idx;
+    const btn = document.createElement('button');
+    btn.className = 'mo-tab' + (isActive ? ' active' : '');
+    btn.style.position = 'relative';
+    btn.innerHTML = m.label + (hasData ? '<span class="mo-event-dot" style="background:#38bdf8;"></span>' : '');
+    btn.title = m.label + (hasData ? ' (데이터 있음)' : '');
+    btn.onclick = (function(idx) { return function() {
+      switchSalesMonth(idx);
+      renderSalesMonthNav();
+    }; })(m.idx);
+    container.appendChild(btn);
+  });
+}
+
+/* ── 월 전환: 이전 월 저장 → 새 월 데이터 로드 → 도면 위치 유지한 채 내용만 갱신 ── */
+function switchSalesMonth(monthIdx) {
+  const prev = window.currentSalesMonth;
+  // 이전 월 데이터 보관
+  if (prev !== null && prev !== undefined) {
+    if (!window.monthlySalesStore) window.monthlySalesStore = {};
+    if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
+    window.monthlySalesStore[currentStore][_salesMonthKey(prev)] = {
+      salesData:      JSON.parse(JSON.stringify(window.salesData      || {})),
+      areaData:       JSON.parse(JSON.stringify(window.areaData       || {})),
+      salesGroups:    JSON.parse(JSON.stringify(window.salesGroups    || {})),
+      salesGroupData: JSON.parse(JSON.stringify(window.salesGroupData || {}))
+    };
+  }
+  window.currentSalesMonth = monthIdx;
+  const md = getSalesMonthData(monthIdx);
+  window.salesData      = JSON.parse(JSON.stringify(md.salesData));
+  window.areaData       = JSON.parse(JSON.stringify(md.areaData));
+  window.salesGroups    = JSON.parse(JSON.stringify(md.salesGroups));
+  window.salesGroupData = JSON.parse(JSON.stringify(md.salesGroupData));
+
+  // 도면이 이미 렌더된 경우: 위치 유지하며 색상·패널만 갱신
+  const gcSales = document.getElementById('gc-sales');
+  const tblCol  = document.querySelector('#salesWrap [data-sales-panel]');
+  if (gcSales && tblCol) {
+    refreshSalesContent(gcSales, tblCol);
+  } else {
+    renderSalesView(); // 최초 진입이면 전체 렌더
+  }
+  // 상단 월별 탭 활성 상태 갱신
+  renderSalesMonthNav();
+}
+
+/* ── 도면 위치 고정, 히트맵 색상 + 우측 패널만 갱신 ── */
+function refreshSalesContent(gcEl, panelEl) {
+  const metrics     = calcSalesMetrics();
+  const maxPerSales = Math.max(...metrics.map(m => m.perSales), 1);
+  const avgPerSales = metrics.length ? metrics[0].avgPerSales : 0;
+  const _gsum = window.salesGroupData
+    ? Object.values(window.salesGroupData).reduce((s,g)=>s+(Number(g.sales)||0),0) : 0;
+  const totalSales = _gsum > 0 ? _gsum : (metrics.length ? metrics[0].totalSales : 0);
+  const totalArea  = window.manualTotalArea > 0 ? window.manualTotalArea : (metrics.length ? metrics[0].totalArea : 0);
+
+  // ── 평균 배지 갱신 ──
+  const avgBadge = document.getElementById('salAvgBadge');
+  if (avgBadge) {
+    const dispAvgPS = totalArea > 0 ? totalSales / totalArea : avgPerSales;
+    const cG = {A:0,B:0,C:0};
+    metrics.forEach(m => { if(cG[m.grade]!==undefined) cG[m.grade]++; });
+    avgBadge.textContent = `평균 평당매출: ${Math.round(dispAvgPS).toLocaleString()}만원/평  |  총매출: ${fmtM(totalSales)}  |  A:${cG.A} B:${cG.B} C:${cG.C}`;
+  }
+
+  // ── 월 상태 바 텍스트 갱신 ──
+  const monthBarLabel = document.getElementById('salesMonthBarLabel');
+  if (monthBarLabel) {
+    const curMon = window.currentSalesMonth;
+    const curMonLabel = curMon !== null && curMon !== undefined
+      ? (typeof MONTHS !== 'undefined' ? MONTHS[curMon].label : (curMon+1)+'월') : '종합';
+    const hasMonthData = (function() {
+      if (curMon === null || curMon === undefined) return false;
+      if (!window.monthlySalesStore || !window.monthlySalesStore[currentStore]) return false;
+      const md2 = window.monthlySalesStore[currentStore][_salesMonthKey(curMon)];
+      return md2 && (Object.keys(md2.salesData||{}).length > 0 || Object.keys(md2.salesGroupData||{}).length > 0);
+    })();
+    monthBarLabel.innerHTML =
+      (curMon !== null && curMon !== undefined ? '📅 ' + curMonLabel + ' 데이터 보기 중' : '📊 종합 보기 중') +
+      (curMon !== null && curMon !== undefined && hasMonthData ? ' <span style="font-size:9px;color:#22d3ee;">✅</span>' : '') +
+      (curMon !== null && curMon !== undefined && !hasMonthData ? ' <span style="font-size:9px;color:#f59e0b;">⚠️</span>' : '');
+  }
+
+  // ── 도면 히트맵 색상 업데이트 (DOM 위치 건드리지 않음) ──
+  const groups     = window.salesGroups || {};
+  const hasGroups  = Object.keys(groups).length > 0;
+  const metricMap  = {};
+  metrics.forEach(m => { metricMap[m.z.id] = m; });
+  const zoneGroupMap = {};
+  Object.entries(groups).forEach(([gid, g]) => {
+    (g.zoneIds||[]).forEach(zid => { zoneGroupMap[zid] = {gid, g}; });
+  });
+
+  gcEl.querySelectorAll('.zb').forEach(zEl => {
+    const zid = zEl.id.replace('sz-','');
+    const m   = metricMap[zid];
+    const isCpillar = zEl.classList.contains('cpillar');
+    const isCw      = zEl.classList.contains('cw');
+    const zidR2 = zEl.id.replace('sz-','').replace('z-','');
+    const zDataR = (typeof _zonesMap !== 'undefined' && _zonesMap) ? _zonesMap.get(zidR2)
+                 : (typeof zones !== 'undefined' ? zones.find(function(z){ return z.id === zidR2; }) : null);
+    const isPillarTypeR = zDataR && (zDataR.type === '기둥' || zDataR.type === '벽부');
+    if (isCpillar || isCw || isPillarTypeR) {
+      // 벽부/기둥: 투명도 강제 복원 + 원본 색상 유지
+      zEl.style.opacity = '1';
+      zEl.style.filter  = 'none';
+      zEl.classList.remove('cat-dimmed','cat-highlighted');
+      // 기둥이 아닌 벽부는 원본 색상 복원
+      const _isP = isCpillar || (zDataR && zDataR.type === '기둥');
+      if (!_isP && zDataR) {
+        var _wc = zDataR.color;
+        var _we = (typeof COLORS !== 'undefined' && _wc)
+          ? COLORS.find(function(c){ return c.key === _wc; }) : null;
+        if (_we) {
+          zEl.style.background = _we.bg;
+          zEl.style.borderColor = _we.bc;
+        }
+      }
+      return;
+    }
+
+    if (hasGroups) {
+      // 그룹 모드: 색상 변경 없음, SVG 블록만 재렌더
+    } else {
+      if (m) {
+        zEl.style.background = m.isDead ? '#6b7280' : salesHeatColor(m.perSales, maxPerSales);
+        zEl.style.border     = '3px solid ' + (m.isDead ? '#374151' : gradeColor(m.grade));
+        const zi = zEl.querySelector('.zi');
+        if (zi) {
+          zi.innerHTML = '';
+          const perSalesText = m.perSales > 0 ? Math.floor(m.perSales).toLocaleString() : '-';
+          const numDiv = document.createElement('div');
+          numDiv.style.cssText = 'font-size:12px;font-weight:900;color:#fff;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.5);text-align:center;width:100%;';
+          numDiv.textContent = perSalesText;
+          zi.appendChild(numDiv);
+        }
+      }
+    }
+  });
+
+  // 그룹 SVG 블록 재렌더
+  if (hasGroups) {
+    requestAnimationFrame(() => {
+      renderSalesGroupBlocks(gcEl, groups, zoneGroupMap, metricMap, maxPerSales);
+    });
+  }
+
+  // ── 우측 패널 갱신 ──
+  panelEl.innerHTML = '';
+  renderSalesPanel(panelEl, metrics, maxPerSales, avgPerSales, totalSales, totalArea);
+
+  // 그룹 아웃라인 재적용
+  setTimeout(applySalesGroupOutlines, 50);
+}
+
+/* ── 평당매출 탭 진입 시 기존 navMonths 탭바와 동기화 ──
+   navMonths의 mo-tab 클릭 → jumpToMonth → curMonthIdx 변경
+   평당매출 탭이 열려 있으면 switchSalesMonth도 같이 실행되도록 패치 */
+function _patchJumpToMonthForSales() {
+  if (window._jumpToMonthSalesPatched) return;
+  window._jumpToMonthSalesPatched = true;
+  const _origJump = window.jumpToMonth;
+  window.jumpToMonth = function(mi) {
+    if (typeof _origJump === 'function') _origJump(mi);
+    // 평당매출 탭이 열려 있을 때만 월 동기화
+    const sw = document.getElementById('salesWrap');
+    if (sw && sw.style.display !== 'none') {
+      switchSalesMonth(mi);
+    }
+  };
+}
+
 /* ── 메인 렌더 ── */
 function renderSalesView() {
   const wrap = document.getElementById('salesWrap');
   if (!wrap) return;
+  // 이미 렌더 중이면 스킵 (탭 전환 시 중복 호출 방지)
+  if (wrap._rendering) return;
+  wrap._rendering = true;
+  setTimeout(function() { if(wrap) wrap._rendering = false; }, 500);
+
+  // jumpToMonth 패치 (평당매출 탭 진입 시 한 번만)
+  _patchJumpToMonthForSales();
+
+  // 처음 탭 열 때: currentSalesMonth를 현재 curMonthIdx에 맞춤 (미초기화 상태만)
+  if (window.currentSalesMonth === null || window.currentSalesMonth === undefined) {
+    // 종합 보기 유지 (null)
+  }
+
   wrap.innerHTML = '';
   wrap.style.flexDirection = 'column';
 
@@ -8270,7 +8855,41 @@ function renderSalesView() {
   `;
   wrap.appendChild(toolbar);
 
-  // ② 범례 바
+  // ① - 2 월별 동기화 안내 바 (기존 상단 navMonths 탭바와 연동)
+  const monthBar = document.createElement('div');
+  const curMon = window.currentSalesMonth; // null or 0~11
+  const curMonLabel = curMon !== null && curMon !== undefined
+    ? (typeof MONTHS !== 'undefined' ? MONTHS[curMon].label : (curMon+1)+'월')
+    : '종합';
+  const hasMonthData = (function() {
+    if (curMon === null || curMon === undefined) return false;
+    if (!window.monthlySalesStore || !window.monthlySalesStore[currentStore]) return false;
+    const md = window.monthlySalesStore[currentStore][_salesMonthKey(curMon)];
+    return md && (Object.keys(md.salesData||{}).length > 0 || Object.keys(md.salesGroupData||{}).length > 0);
+  })();
+
+  monthBar.style.cssText = 'background:#0c1220;padding:4px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;border-bottom:1px solid #1e3a5f;flex-wrap:wrap;min-height:32px;';
+  monthBar.innerHTML =
+    '<span id="salesMonthBarLabel" style="font-size:10px;font-weight:800;color:' + (curMon !== null && curMon !== undefined ? '#38bdf8' : '#64748b') + ';">' +
+      (curMon !== null && curMon !== undefined ? '📅 ' + curMonLabel + ' 보기 중' : '📊 종합 보기') +
+    '</span>' +
+    (curMon !== null && curMon !== undefined && hasMonthData ? '<span style="font-size:9px;color:#22d3ee;background:rgba(34,211,238,.1);border-radius:4px;padding:1px 6px;border:1px solid rgba(34,211,238,.3);">✅ 저장됨</span>' : '') +
+    (curMon !== null && curMon !== undefined && !hasMonthData ? '<span style="font-size:9px;color:#f59e0b;background:rgba(245,158,11,.1);border-radius:4px;padding:1px 6px;border:1px solid rgba(245,158,11,.3);">⚠️ 미저장</span>' : '');
+
+  // 월별 저장 버튼 제거 — 저장탭의 서버 동기화 저장으로 통합
+
+  // 관리자: 종합 보기일 때도 동기화 모달
+  if (isAdmin && (curMon === null || curMon === undefined)) {
+    const syncBtn = document.createElement('button');
+    syncBtn.style.cssText = 'font-family:inherit;font-size:10px;font-weight:700;padding:3px 10px;border:1.5px solid #3b82f6;border-radius:5px;background:rgba(59,130,246,.1);color:#60a5fa;cursor:pointer;margin-left:auto;white-space:nowrap;flex-shrink:0;';
+    syncBtn.innerHTML = '☁️ 동기화 저장';
+    syncBtn.onclick = function() {
+      openSyncConfirmModal();
+    };
+    monthBar.appendChild(syncBtn);
+  }
+
+  wrap.appendChild(monthBar);
   const legend = document.createElement('div');
   legend.style.cssText = 'background:#1e293b;padding:6px 16px;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap;';
   legend.innerHTML = `
@@ -8298,49 +8917,83 @@ function renderSalesView() {
 
   // 도면 컬럼
   const mapCol = document.createElement('div');
-  mapCol.style.cssText = 'flex:1;overflow:auto;background:var(--bg,#f0ede6);position:relative;min-width:0;';
+  mapCol.style.cssText = 'flex:1;overflow:auto;background:#f0ede6;position:relative;min-width:0;';
+  mapCol.id = 'salesMapCol';
+  // 평당매출 ↔ 도면 스크롤 실시간 동기화
+  mapCol._syncingScroll = false;
+  mapCol.addEventListener('scroll', function() {
+    // 복원 잠금 중이면 저장 스킵 (탭 전환 직후 0으로 덮어쓰기 방지)
+    if (window._salesScrollRestoreLock) return;
+    const maxSX = Math.max(1, mapCol.scrollWidth  - mapCol.clientWidth);
+    const maxSY = Math.max(1, mapCol.scrollHeight - mapCol.clientHeight);
+    window._savedSalesScrollLeft   = mapCol.scrollLeft;
+    window._savedSalesScrollTop    = mapCol.scrollTop;
+    window._savedSalesScrollRatioX = mapCol.scrollLeft / maxSX;
+    window._savedSalesScrollRatioY = mapCol.scrollTop  / maxSY;
+  });
   body.appendChild(mapCol);
 
   // ── 줌 컨트롤 (도면 탭과 동일한 스타일) ──
   if (!window.salesMapScale) window.salesMapScale = 0.6;  // 초기 60% (도면 탭과 동일)
 
-  // ── 평당매출 도면 중앙 배치 + 스케일 적용 (도면 탭 applyScale과 동일 방식) ──
+  // ── 평당매출 도면 중앙 배치 + 스케일 적용
+  //    도면탭 applyScale() 과 완전히 동일한 방식:
+  //    sizeWrapper = 스크롤 범위 확보용 (픽셀 크기 명시)
+  //    scaler = position:absolute, transform-origin:top left
+  //    left = (colW - scaledW)/2 → 가로 중앙 / top = PAD → 상단 여백
   function applySalesScale() {
     const scEl  = document.getElementById('salesMapScaler');
     const swEl  = document.getElementById('salesMapSizeWrapper');
-    const gcEl  = document.getElementById('gc-sales');
     if (!scEl || !swEl || !mapCol) return;
-    const scale    = window.salesMapScale || 0.6;
-    const PAD_TOP  = 16;
-    const PAD_SIDE = 16;
+    const scale   = window.salesMapScale || 0.6;
+    const PAD     = 20;  // 도면탭 canvasArea padding과 동일
 
-    // gc-sales 의 실제 크기(scale 미적용 상태)를 읽음
-    // transform:scale은 offsetWidth에 영향을 주지 않으므로 그대로 사용
-    const rawW = gcEl ? gcEl.offsetWidth  : scEl.offsetWidth;
-    const rawH = gcEl ? gcEl.offsetHeight : scEl.offsetHeight;
+    const rawW = parseFloat(scEl.style.width)  || scEl.offsetWidth  || 100;
+    const rawH = parseFloat(scEl.style.height) || scEl.offsetHeight || 100;
 
     const scaledW = rawW * scale;
     const scaledH = rawH * scale;
     const colW    = mapCol.clientWidth;
     const colH    = mapCol.clientHeight;
 
-    // 중앙 배치: 도면이 컬럼보다 좁으면 가운데, 넓으면 PAD_SIDE에서 시작
-    const left = Math.max(PAD_SIDE, (colW - scaledW) / 2);
-    const top  = PAD_TOP;
+    // 수평 중앙, 수직 상단(PAD) — 도면탭과 동일
+    const left = Math.max(PAD, (colW - scaledW) / 2);
+    const top  = PAD;
 
+    scEl.style.position        = 'absolute';
     scEl.style.transformOrigin = 'top left';
     scEl.style.transform       = 'scale(' + scale + ')';
-    scEl.style.position        = 'absolute';
     scEl.style.left            = left + 'px';
     scEl.style.top             = top  + 'px';
 
-    // sizeWrapper: 스크롤 영역 확보
-    swEl.style.width  = Math.max(scaledW + PAD_SIDE * 2, colW)  + 'px';
-    swEl.style.height = Math.max(scaledH + PAD_TOP  + 32, colH) + 'px';
+    // sizeWrapper: scaler가 position:absolute이므로
+    // 실제 점유 공간 = left + rawW, top + rawH (scale은 시각적만, layout은 원본크기)
+    // 스크롤 범위는 시각적 크기(scaled) 기준으로 설정해야 사용자 경험이 자연스러움
+    // → scaler에 transform-origin:top left + scale 적용 시
+    //   시각적 우측끝 = left + scaledW, 시각적 하단끝 = top + scaledH
+    const totalW = Math.max(left + scaledW + PAD, colW);
+    const totalH = Math.max(top  + scaledH + PAD, colH);
+    swEl.style.width  = totalW + 'px';
+    swEl.style.height = totalH + 'px';
 
     // % 표시 갱신
     const pctEl = document.getElementById('smZoomPct');
     if (pctEl) pctEl.textContent = Math.round(scale * 100) + '%';
+
+    // ★ 스케일 적용 완료 직후 스크롤 복원 (딜레이 없이 즉시)
+    if (window._pendingSalesScrollRestore) {
+      const restore = window._pendingSalesScrollRestore;
+      window._pendingSalesScrollRestore = null;
+      requestAnimationFrame(function() {
+        const salArea = document.getElementById('salesMapCol');
+        if (!salArea) return;
+        const maxX = Math.max(1, salArea.scrollWidth  - salArea.clientWidth);
+        const maxY = Math.max(1, salArea.scrollHeight - salArea.clientHeight);
+        salArea.scrollLeft = Math.round(restore.rx * maxX);
+        salArea.scrollTop  = Math.round(restore.ry * maxY);
+        window._salesScrollRestoreLock = false;
+      });
+    }
   }
 
   function salesZoomStep(delta) {
@@ -8408,6 +9061,7 @@ function renderSalesView() {
   // 분석표 컬럼
   const tblCol = document.createElement('div');
   tblCol.style.cssText = 'width:420px;flex-shrink:0;overflow:hidden;background:#fff;border-left:2px solid #e5e7eb;display:flex;flex-direction:column;';
+  tblCol.setAttribute('data-sales-panel', '1');
   body.appendChild(tblCol);
 
   // DOM 입력 폼이 열려 있으면 salesGroupData를 실시간 동기화 (단, 엑셀로 저장된 값은 덮지 않음)
@@ -8486,6 +9140,37 @@ function renderSalesView() {
       bar.style.display = 'flex';
       if (typeof window._positionSalesZoomCtrl === 'function') window._positionSalesZoomCtrl();
     }
+    // 지점 변경 시에만 입구로 이동
+    if (window._salesPanToEntrance) {
+      window._salesPanToEntrance = false;
+      setTimeout(function() {
+        const salArea = document.getElementById('salesMapCol');
+        const gcSales = document.getElementById('gc-sales');
+        if (!salArea || !gcSales || typeof zones === 'undefined') return;
+        const entZone = zones.find(function(z) {
+          return z.type === '입구' || (z.color && z.color.startsWith('ent_')) || z.color === 'ent';
+        });
+        if (!entZone) return;
+        const CELL = 98, ROW = 62, GAP = 4, GPAD = 8;
+        const _px = function(c){ return c * (CELL + GAP) + GPAD; };
+        const _py = function(r){ return r * (ROW  + GAP) + GPAD; };
+        const zx = _px(entZone.col) + 8, zy = _py(entZone.row) + 8;
+        const gcCx = zx + entZone.cols * CELL + (entZone.cols - 1) * GAP / 2;
+        const gcCy = zy + entZone.rows * ROW  + (entZone.rows  - 1) * GAP / 2;
+        const rot = ((typeof storeRotations !== 'undefined' && storeRotations[currentStore]) || 0) * Math.PI / 180;
+        const cos = Math.cos(rot), sin = Math.sin(rot);
+        const dx = gcCx - gcSales.offsetWidth / 2, dy = gcCy - gcSales.offsetHeight / 2;
+        const rx = dx * cos - dy * sin, ry = dx * sin + dy * cos;
+        const salRect = salArea.getBoundingClientRect();
+        const gcRect  = gcSales.getBoundingClientRect();
+        const scale   = window.salesMapScale || 0.6;
+        const screenCx = gcRect.left + gcRect.width  / 2 + rx * scale;
+        const screenCy = gcRect.top  + gcRect.height / 2 + ry * scale;
+        const targetX = salArea.scrollLeft + (screenCx - salRect.left) - salArea.clientWidth  / 2;
+        const targetY = salArea.scrollTop  + (screenCy - salRect.top)  - salArea.clientHeight / 2;
+        salArea.scrollTo({ left: Math.max(0, targetX), top: Math.max(0, targetY), behavior: 'smooth' });
+      }, 80);
+    }
   }, 120);
 }
 
@@ -8502,34 +9187,124 @@ function renderSalesMap(container, metrics, maxPerSales) {
   // sizeWrapper: 스크롤 영역 확보용 — 실제 크기는 applySalesScale에서 계산
   const sizeWrapper = document.createElement('div');
   sizeWrapper.id = 'salesMapSizeWrapper';
-  sizeWrapper.style.cssText = 'position:relative;min-width:100%;min-height:100%;';
+  sizeWrapper.style.cssText = 'position:relative;';
 
   const scaler = document.createElement('div');
   scaler.id = 'salesMapScaler';
   scaler.style.transformOrigin = 'top left';
   scaler.style.transform       = 'scale(' + salesScale + ')';
   scaler.style.position        = 'absolute';
-  scaler.style.left            = '16px';
-  scaler.style.top             = '16px';
+  scaler.style.left            = '0px';
+  scaler.style.top             = '0px';
   scaler.style.flexShrink      = '0';
-  scaler.style.display         = 'inline-block';
+  scaler.style.display         = 'block';
+  scaler.style.overflow        = 'visible';
 
-  // ── gc 복제 ──
-  const gcClone = gcSrc.cloneNode(true);
-  gcClone.id = 'gc-sales';
-  // 원본 gc의 크기(width/height)만 가져오고, 위치(left/top/position)는 초기화
-  gcClone.style.cssText   = '';
-  gcClone.style.position  = 'relative';
-  gcClone.style.width     = gcSrc.style.width  || gcSrc.offsetWidth  + 'px';
-  gcClone.style.height    = gcSrc.style.height || gcSrc.offsetHeight + 'px';
-  gcClone.style.overflow  = 'visible';
-  gcClone.style.flexShrink = '0';
+  // ── gc 복제: 회전 포함 bbox 계산 ──
+  const _rot = (typeof storeRotations !== 'undefined' && storeRotations[currentStore]) || 0;
+  const _rad = _rot * Math.PI / 180;
+  const _cos = Math.abs(Math.cos(_rad)), _sin = Math.abs(Math.sin(_rad));
 
-  gcClone.querySelectorAll('.rh, .rh-rot').forEach(el => el.remove());
+  // ★ 핵심 수정: planView가 display:none일 때 offsetWidth=0 문제 해결
+  // 우선순위: 전역 저장값 → gcScaler style → scrollWidth → zones 계산
+  let _gcW = 0, _gcH = 0;
+
+  // 1차: applyScale()이 저장해둔 전역 값 (가장 정확)
+  if (window._gcLastKnownW && window._gcLastKnownH) {
+    _gcW = window._gcLastKnownW;
+    _gcH = window._gcLastKnownH;
+  }
+
+  // 2차: gcScaler의 style.width/height (applyScale이 설정한 bbox 크기)
+  if (!_gcW || !_gcH) {
+    const _scalerEl = document.getElementById('gcScaler');
+    if (_scalerEl && _scalerEl.style.width) {
+      // gcScaler width = bbox 크기, gc 원본 크기는 역산
+      const _bw = parseFloat(_scalerEl.style.width)  || 0;
+      const _bh = parseFloat(_scalerEl.style.height) || 0;
+      if (_bw && _bh) {
+        // 회전이 없으면 bbox = gc 크기
+        if (!_rot) { _gcW = _bw; _gcH = _bh; }
+        else {
+          // 역산: bw = w*cos+h*sin, bh = w*sin+h*cos → 근사값
+          _gcW = Math.round((_bw * _cos - _bh * _sin) / (_cos*_cos - _sin*_sin)) || _bw;
+          _gcH = Math.round((_bh * _cos - _bw * _sin) / (_cos*_cos - _sin*_sin)) || _bh;
+        }
+      }
+    }
+  }
+
+  // 3차: zones 데이터로 직접 계산 — render()와 완전 동일한 공식
+  // 반드시 전역 CELL/ROW/GAP 사용 (도면탭과 동일한 상수)
+  if ((!_gcW || !_gcH) && typeof zones !== 'undefined' && zones.length > 0) {
+    const _CELL = (typeof CELL !== 'undefined') ? CELL : 72;
+    const _ROW  = (typeof ROW  !== 'undefined') ? ROW  : 46;
+    const _GAP  = (typeof GAP  !== 'undefined') ? GAP  : 3;
+    const _canvasExtraC = (typeof canvasExtraC !== 'undefined') ? canvasExtraC : 0;
+    const _canvasExtraR = (typeof canvasExtraR !== 'undefined') ? canvasExtraR : 0;
+    const maxC = Math.max(...zones.map(function(z){ return (z.col||0)+(z.cols||1); }), 22) + _canvasExtraC;
+    const maxR = Math.max(...zones.map(function(z){ return (z.row||0)+(z.rows||1); }), 24) + _canvasExtraR;
+    _gcW = maxC * (_CELL + _GAP) + _GAP + 16;
+    _gcH = maxR * (_ROW  + _GAP) + _GAP + 16;
+  }
+
+  // 4차: 최소값 보장
+  if (!_gcW) _gcW = 800;
+  if (!_gcH) _gcH = 600;
+
+  // bbox 크기 (회전 포함)
+  const _bboxW = _gcW * _cos + _gcH * _sin;
+  const _bboxH = _gcW * _sin + _gcH * _cos;
+
+  // innerWrap: bbox 크기의 컨테이너 (gcScaler와 동일한 역할)
+  const innerWrap = document.createElement('div');
+  innerWrap.id = 'salesMapScalerInner';
+  innerWrap.style.position = 'relative';
+  innerWrap.style.width    = _bboxW + 'px';
+  innerWrap.style.height   = _bboxH + 'px';
+  innerWrap.style.overflow = 'visible';
+
+  // gc 복제 — top/left를 bbox 기준으로 재계산 (원본 gc의 top/left는 무시)
+  const scalerClone = gcSrc.cloneNode(true);
+  scalerClone.id = 'gc-sales';
+  scalerClone.removeAttribute('style');
+  // .gc 클래스 유지 → background:#fff, border:2px solid #333 CSS 적용됨
+  // 위치/크기/회전은 인라인으로
+  scalerClone.style.position        = 'absolute';
+  scalerClone.style.width           = _gcW + 'px';
+  scalerClone.style.height          = _gcH + 'px';
+  scalerClone.style.top             = ((_bboxH - _gcH) / 2) + 'px';
+  scalerClone.style.left            = ((_bboxW - _gcW) / 2) + 'px';
+  scalerClone.style.transformOrigin = 'center center';
+  scalerClone.style.transform       = _rot ? 'rotate(' + _rot + 'deg)' : '';
+  scalerClone.style.overflow        = 'visible';
+  scalerClone.style.background      = '#ffffff';
+  scalerClone.style.border          = '2px solid #333333';
+  scalerClone.style.borderRadius    = '6px';
+  scalerClone.style.padding         = '8px';
+  scalerClone.style.boxSizing       = 'border-box';
+
+  innerWrap.appendChild(scalerClone);
+
+  // salesMapScaler 크기 = bbox 크기
+  scaler.style.width  = _bboxW + 'px';
+  scaler.style.height = _bboxH + 'px';
+
+  const gcClone = scalerClone; // 이하 코드 호환성
+
+  // 핸들 요소 일괄 제거 (forEach remove보다 한번에 처리)
+  scalerClone.querySelectorAll('.rh,.rh-rot,.bb-overlay,.mz-overlay').forEach(function(el){ el.remove(); });
 
   // 도면 탭의 cat-dimmed/cat-highlighted 클래스 및 opacity 인라인 스타일 초기화
-  gcClone.querySelectorAll('.zb').forEach(el => {
-    el.classList.remove('cat-dimmed', 'cat-highlighted', 'sel', 'drag-selected', 'multi-sel', 'dragging', 'hl');
+  // 클래스 제거 최적화: 한 번의 querySelectorAll로 처리
+  const _dimmedEls = scalerClone.querySelectorAll(
+    '.cat-dimmed,.cat-highlighted,.sel,.drag-selected,.multi-sel,.dragging,.hl'
+  );
+  _dimmedEls.forEach(el => {
+    el.classList.remove('cat-dimmed','cat-highlighted','sel','drag-selected','multi-sel','dragging','hl');
+  });
+  // opacity/filter 초기화는 .zb에만 (개수 줄임)
+  scalerClone.querySelectorAll('.zb[style*="opacity"],.zb[style*="filter"]').forEach(el => {
     el.style.opacity = '';
     el.style.filter  = '';
   });
@@ -8547,51 +9322,82 @@ function renderSalesMap(container, metrics, maxPerSales) {
     (g.zoneIds || []).forEach(zid => { zoneGroupMap[zid] = { gid, g }; });
   });
 
+  // ── zones Map 생성 (O(n²) → O(n) 최적화) ──
+  const _zonesMap = new Map();
+  if (typeof zones !== 'undefined') {
+    zones.forEach(function(z) { _zonesMap.set(z.id, z); });
+  }
+
   // ── 1) 개별 집기 스타일 처리 ──
-  gcClone.querySelectorAll('.zb').forEach(zEl => {
+  scalerClone.querySelectorAll('.zb').forEach(zEl => {
     const zid = zEl.id.replace('z-', '');
     zEl.id = 'sz-' + zid;
     const m = metricMap[zid];
 
-    // 내부 텍스트 제거 (그룹 레이블로 대체)
+    // 내부 텍스트 제거 (textContent가 innerHTML보다 빠름)
     const zi = zEl.querySelector('.zi');
-    if (zi) zi.innerHTML = '';
+    if (zi) { zi.textContent = ''; }
 
-    // ── 벽부/기둥은 도면 탭과 동일하게 원본 스타일 강제 유지 ──
+    // ── 벽부/기둥은 도면 탭과 완전히 동일하게 — opacity 1, 선명하게 ──
     const isCpillar = zEl.classList.contains('cpillar');
     const isCw      = zEl.classList.contains('cw');
-    if (isCpillar || isCw) {
-      // 위치/크기 인라인 스타일 보존 후 색상만 강제 적용
+    const zidRaw = zEl.id.replace('sz-','').replace('z-','');
+    const zData  = _zonesMap.get(zidRaw) || null;
+    const isPillarType = zData && (zData.type === '기둥' || zData.type === '벽부');
+    if (isCpillar || isCw || isPillarType) {
+      // 위치/크기/회전 인라인값 백업
       const savedLeft      = zEl.style.left;
       const savedTop       = zEl.style.top;
       const savedWidth     = zEl.style.width;
       const savedHeight    = zEl.style.height;
       const savedTransform = zEl.style.transform;
-      zEl.removeAttribute('style');
-      // 위치/크기 복원
-      if (savedLeft)      zEl.style.left      = savedLeft;
-      if (savedTop)       zEl.style.top       = savedTop;
-      if (savedWidth)     zEl.style.width     = savedWidth;
-      if (savedHeight)    zEl.style.height    = savedHeight;
-      if (savedTransform) zEl.style.transform = savedTransform;
-      // 공통 레이아웃
+      // 인라인 스타일 전부 초기화 (CSS 클래스의 dim 효과 완전 차단)
+      zEl.style.cssText = '';
       zEl.style.position      = 'absolute';
+      zEl.style.left          = savedLeft      || '';
+      zEl.style.top           = savedTop       || '';
+      zEl.style.width         = savedWidth     || '';
+      zEl.style.height        = savedHeight    || '';
+      zEl.style.transform     = savedTransform || '';
       zEl.style.borderRadius  = '5px';
       zEl.style.overflow      = 'hidden';
       zEl.style.display       = 'flex';
       zEl.style.flexDirection = 'column';
-      zEl.style.opacity       = '1';
+      zEl.style.opacity       = '1';       // 절대 흐려지지 않게
+      zEl.style.filter        = 'none';    // grayscale 등 차단
       zEl.style.pointerEvents = 'none';
-      if (isCpillar) {
+      zEl.style.zIndex        = '10';
+      zEl.style.boxSizing     = 'border-box';
+      const isPillarStyle = isCpillar || (zData && zData.type === '기둥');
+      if (isPillarStyle) {
+        // 기둥 — 도면 탭 .cpillar 와 완전 동일
         zEl.style.background = '#555555';
         zEl.style.border     = '2px solid #333333';
-        zEl.querySelectorAll('.zname,.zprod,.ztype,.znote,.znum').forEach(t => {
-          t.style.color = '#e8e8e8';
+        zEl.querySelectorAll('.zname,.zprod,.ztype,.znote,.znum').forEach(function(t) {
+          t.style.color   = '#e8e8e8';
+          t.style.opacity = '1';
         });
       } else {
-        zEl.style.background = '#fafaf5';
-        zEl.style.border     = '2px solid #d4d4aa';
+        // 벽부 — 원본 색상 클래스(z.color)를 COLORS에서 찾아 그대로 적용
+        var _wallColor = zData ? zData.color : null;
+        var _wallEntry = (typeof COLORS !== 'undefined' && _wallColor)
+          ? COLORS.find(function(c){ return c.key === _wallColor; })
+          : null;
+        if (_wallEntry) {
+          zEl.style.background = _wallEntry.bg;
+          zEl.style.border     = '2px solid ' + _wallEntry.bc;
+        } else if (_wallColor && _wallColor.startsWith('custom_')) {
+          var _hex = '#' + _wallColor.replace('custom_#','').replace('custom_','');
+          zEl.style.background = _hex;
+          zEl.style.border     = '2px solid ' + _hex;
+        } else {
+          // fallback: cw 기본색
+          zEl.style.background = '#fafaf5';
+          zEl.style.border     = '2px solid #d4d4aa';
+        }
       }
+      // dim 클래스 확실히 제거
+      zEl.classList.remove('cat-dimmed','cat-highlighted');
       return;
     }
 
@@ -8646,14 +9452,15 @@ function renderSalesMap(container, metrics, maxPerSales) {
           highlightSalesTableRow(zid, false);
         });
       } else {
-        zEl.style.opacity = '0.5';
+        // 데이터 없는 집기 — 반투명 처리 (벽부/기둥은 이미 위에서 return됨)
+        zEl.style.opacity    = '0.45';
         zEl.style.background = '#e5e7eb';
-        zEl.style.border = '1.5px solid #d1d5db';
+        zEl.style.border     = '1.5px solid #d1d5db';
       }
     }
   });
 
-  scaler.appendChild(gcClone);
+  scaler.appendChild(innerWrap);
   sizeWrapper.appendChild(scaler);
   container.appendChild(sizeWrapper);
 
@@ -9261,6 +10068,101 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
       (pC>0?'<div style="flex:'+pC+';background:#ef4444;border-radius:0 8px 8px 0;" title="C '+cGrades.C+'개"></div>':'')+
     '</div>';
   sumWrap.appendChild(gradeBar);
+
+  // ─── 월별 평당매출 추이 미니 차트 ───
+  (function renderMonthlyTrend() {
+    if (!window.monthlySalesStore || !window.monthlySalesStore[currentStore]) return;
+    const mStore = window.monthlySalesStore[currentStore];
+    const months = (typeof MONTHS !== 'undefined') ? MONTHS : [
+      {idx:0,label:'1월'},{idx:1,label:'2월'},{idx:2,label:'3월'},{idx:3,label:'4월'},
+      {idx:4,label:'5월'},{idx:5,label:'6월'},{idx:6,label:'7월'},{idx:7,label:'8월'},
+      {idx:8,label:'9월'},{idx:9,label:'10월'},{idx:10,label:'11월'},{idx:11,label:'12월'}
+    ];
+    const vals = months.map(function(m) {
+      const md = mStore[_salesMonthKey(m.idx)];
+      if (!md) return null;
+      const gd = md.salesGroupData || {};
+      const sv = Object.keys(gd).length > 0
+        ? Object.values(gd).reduce(function(s,g){return s+(Number(g.sales)||0);},0)
+        : Object.values(md.salesData||{}).reduce(function(s,v){return s+(Number(v)||0);},0);
+      const av = Object.keys(gd).length > 0
+        ? Object.values(gd).reduce(function(s,g){return s+(Number(g.area)||0);},0)
+        : Object.values(md.areaData||{}).reduce(function(s,v){return s+(Number(v)||0);},0);
+      return av > 0 ? Math.round(sv / av) : (sv > 0 ? sv : null);
+    });
+    const hasAny = vals.some(function(v){return v !== null;});
+    if (!hasAny) return;
+
+    const trendWrap = document.createElement('div');
+    trendWrap.style.cssText = 'padding:10px 14px 12px;border-top:1px solid #f1f5f9;';
+    trendWrap.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:10px;font-weight:700;color:#374151;">📈 월별 평당매출 추이</span><span style="font-size:9px;color:#9ca3af;">만원/평 · 막대 클릭으로 월 전환</span></div>';
+
+    const maxVal = Math.max.apply(null, vals.filter(function(v){return v!==null;})) || 1;
+    const chartH = 44;
+    const barW = 18;
+    const barGap = 3;
+    const totalW = months.length * (barW + barGap);
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width', totalW);
+    svg.setAttribute('height', chartH + 16);
+    svg.style.cssText = 'overflow:visible;display:block;margin:0 auto;';
+
+    vals.forEach(function(v, i) {
+      const x = i * (barW + barGap);
+      const isActive = window.currentSalesMonth === months[i].idx;
+      const isCurMonth = (typeof curMonthIdx !== 'undefined') && curMonthIdx === months[i].idx;
+      const hasVal = v !== null;
+      const bh = hasVal ? Math.max(4, Math.round((v / maxVal) * chartH)) : 3;
+      const by = chartH - bh;
+      const fillColor = !hasVal ? '#374151' : (isActive ? '#38bdf8' : (isCurMonth ? '#818cf8' : '#3b82f6'));
+
+      const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x', x); rect.setAttribute('y', by);
+      rect.setAttribute('width', barW); rect.setAttribute('height', bh);
+      rect.setAttribute('rx', '3'); rect.setAttribute('fill', fillColor);
+      rect.setAttribute('opacity', hasVal ? '1' : '0.2');
+      rect.style.cursor = 'pointer';
+      rect.setAttribute('title', months[i].label + (hasVal ? ': ' + v + '만원/평' : ': 데이터 없음'));
+      rect.addEventListener('click', (function(mi){ return function(){
+        // 기존 jumpToMonth 활용 (nav 탭도 같이 변경)
+        if (typeof jumpToMonth === 'function') jumpToMonth(mi);
+        else switchSalesMonth(mi);
+      }; })(months[i].idx));
+      svg.appendChild(rect);
+
+      if (hasVal && v > 0) {
+        const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+        txt.setAttribute('x', x + barW/2); txt.setAttribute('y', by - 2);
+        txt.setAttribute('text-anchor','middle'); txt.setAttribute('font-size','7');
+        txt.setAttribute('fill', isActive ? '#38bdf8' : '#9ca3af');
+        txt.setAttribute('font-weight', isActive ? '800' : '500');
+        txt.textContent = v >= 1000 ? (Math.round(v/100)/10)+'k' : v;
+        svg.appendChild(txt);
+      }
+
+      const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      lbl.setAttribute('x', x + barW/2); lbl.setAttribute('y', chartH + 13);
+      lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('font-size','7.5');
+      lbl.setAttribute('fill', isActive ? '#38bdf8' : (isCurMonth ? '#818cf8' : '#9ca3af'));
+      lbl.setAttribute('font-weight', (isActive || isCurMonth) ? '800' : '400');
+      lbl.textContent = months[i].label.replace('월','');
+      svg.appendChild(lbl);
+    });
+
+    trendWrap.appendChild(svg);
+
+    const curLabel = window.currentSalesMonth !== null && window.currentSalesMonth !== undefined
+      ? ((typeof MONTHS !== 'undefined' ? MONTHS[window.currentSalesMonth].label : (window.currentSalesMonth+1)+'월'))
+      : '종합';
+    const info = document.createElement('div');
+    info.style.cssText = 'font-size:9px;color:#64748b;text-align:center;margin-top:6px;';
+    info.textContent = '현재: ' + curLabel + ' · 보라색=현재 상단 월 탭 · 파란색=데이터 있음';
+    trendWrap.appendChild(info);
+
+    sumWrap.appendChild(trendWrap);
+  })();
+
   container.appendChild(sumWrap);
 
   // ─── 탭 바 ───
@@ -9993,7 +10895,6 @@ function setSalesSort(key) {
 
   const btnMap = { perSales:'salSortPerSales', effIdx:'salSortEff', sales:'salSortSales' };
   const lblMap = { perSales:'평당매출', effIdx:'효율지수', sales:'매출액' };
-
   Object.keys(btnMap).forEach(k => {
     const btn = document.getElementById(btnMap[k]);
     if (!btn) return;
@@ -10004,7 +10905,14 @@ function setSalesSort(key) {
     btn.textContent = lblMap[k] + (isActive ? (salesSortAsc ? ' ▲' : ' ▼') : '');
   });
 
-  renderSalesView();
+  // 도면 위치 유지하며 패널만 갱신
+  const gcSales = document.getElementById('gc-sales');
+  const tblCol  = document.querySelector('#salesWrap [data-sales-panel]');
+  if (gcSales && tblCol) {
+    refreshSalesContent(gcSales, tblCol);
+  } else {
+    renderSalesView();
+  }
 }
 
 /* ── 데이터 입력 모달 ── */
@@ -10669,7 +11577,20 @@ function applyExcelData() {
   });
 
   document.getElementById('excelUploadModal').style.display = 'none';
-  showToast('✅ ' + applied + '개 구역에 데이터가 적용되었습니다');
+  showToast('✅ ' + applied + '개 구역에 데이터가 적용되었습니다 — Firebase 동기화 중...');
+
+  // storeSalesDataMap / storeAreaDataMap 백업
+  if (!window.storeSalesDataMap) window.storeSalesDataMap = {};
+  if (!window.storeAreaDataMap)  window.storeAreaDataMap  = {};
+  window.storeSalesDataMap[currentStore] = JSON.parse(JSON.stringify(window.salesData || {}));
+  window.storeAreaDataMap[currentStore]  = JSON.parse(JSON.stringify(window.areaData  || {}));
+
+  // 월별 데이터 저장 (월이 선택된 경우)
+  if (window.currentSalesMonth !== null && window.currentSalesMonth !== undefined) {
+    saveSalesMonthData(window.currentSalesMonth);
+  } else {
+    if (typeof syncToFirebase === 'function') syncToFirebase();
+  }
   renderSalesView();
 }
 
@@ -10749,9 +11670,18 @@ function applySalesData() {
   if (!window.storeSalesGroupDataMap) window.storeSalesGroupDataMap = {};
   window.storeSalesGroupDataMap[currentStore] = JSON.parse(JSON.stringify(window.salesGroupData || {}));
 
+  // storeSalesDataMap / storeAreaDataMap 백업
+  if (!window.storeSalesDataMap) window.storeSalesDataMap = {};
+  if (!window.storeAreaDataMap)  window.storeAreaDataMap  = {};
+  window.storeSalesDataMap[currentStore] = JSON.parse(JSON.stringify(window.salesData || {}));
+  window.storeAreaDataMap[currentStore]  = JSON.parse(JSON.stringify(window.areaData  || {}));
+
   closeSalesDataModal();
-  showToast('✅ 데이터 저장 완료 — 분석 갱신됨');
+  showToast('✅ 데이터 저장 완료 — Firebase 동기화 중...');
   renderSalesView();
+
+  // Firebase 자동 저장
+  if (typeof syncToFirebase === 'function') syncToFirebase();
 }
 
 /* ── 구버전 함수 호환용 stub ── */
