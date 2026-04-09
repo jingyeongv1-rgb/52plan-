@@ -9693,11 +9693,8 @@ function switchSalesMonth(monthIdx) {
  // 도면이 이미 렌더된 경우: 위치 유지하며 색상·패널만 갱신
  const gcSales = document.getElementById('gc-sales');
  const tblCol = document.querySelector('#salesWrap [data-sales-panel]');
- if (gcSales && tblCol) {
- refreshSalesContent(gcSales, tblCol);
- } else {
- renderSalesView(); // 최초 진입이면 전체 렌더
- }
+ // 월이 바뀌면 도면도 다시 그려야 함 (월별 집기 위치/구성이 다를 수 있음)
+ renderSalesView();
  // 상단 월별 탭 활성 상태 갱신
  renderSalesMonthNav();
 }
@@ -9791,28 +9788,6 @@ function refreshSalesContent(gcEl, panelEl) {
  const zoneGroupMap = {};
  Object.entries(groups).forEach(([gid, g]) => {
  (g.zoneIds||[]).forEach(zid => { zoneGroupMap[zid] = {gid, g}; });
- });
-
- // ── currentSalesMonth 기준으로 집기 위치/크기/숨김 갱신 ──
- const _rSalMoIdx = (window.currentSalesMonth !== null && window.currentSalesMonth !== undefined)
-  ? window.currentSalesMonth : curMonthIdx;
- const _rCELL = (typeof CELL !== 'undefined') ? CELL : 72;
- const _rROW  = (typeof ROW  !== 'undefined') ? ROW  : 46;
- const _rGAP  = (typeof GAP  !== 'undefined') ? GAP  : 3;
- const _rZonesMap = new Map();
- if (typeof zones !== 'undefined') zones.forEach(z => _rZonesMap.set(z.id, z));
- gcEl.querySelectorAll('.zb').forEach(zEl => {
-  const _rzid = zEl.id.replace('sz-', '');
-  const _rzOrig = _rZonesMap.get(_rzid);
-  if (!_rzOrig) return;
-  const _reff = (typeof getEffectiveZoneAt === 'function')
-   ? getEffectiveZoneAt(_rzOrig, _rSalMoIdx) : _rzOrig;
-  if (!_reff) { zEl.style.display = 'none'; return; }
-  zEl.style.display = '';
-  zEl.style.left   = (_reff.col * (_rCELL + _rGAP) + 8) + 'px';
-  zEl.style.top    = (_reff.row * (_rROW  + _rGAP) + 8) + 'px';
-  zEl.style.width  = (_reff.cols * _rCELL + (_reff.cols - 1) * _rGAP) + 'px';
-  zEl.style.height = (_reff.rows * _rROW  + (_reff.rows - 1) * _rGAP) + 'px';
  });
 
  gcEl.querySelectorAll('.zb').forEach(zEl => {
@@ -10388,12 +10363,17 @@ function renderSalesMap(container, metrics, maxPerSales) {
  innerWrap.style.height = _bboxH + 'px';
  innerWrap.style.overflow = 'visible';
 
- // gc 복제 — top/left를 bbox 기준으로 재계산 (원본 gc의 top/left는 무시)
- const scalerClone = gcSrc.cloneNode(true);
+ // gc 복제 — zones 데이터로 currentSalesMonth 기준 직접 생성
+ // (cloneNode는 도면탭 현재 달 DOM에 의존해서 다른 달이면 틀림)
+ const _salMoIdx = (window.currentSalesMonth !== null && window.currentSalesMonth !== undefined)
+  ? window.currentSalesMonth : curMonthIdx;
+ const _CELL = (typeof CELL !== 'undefined') ? CELL : 72;
+ const _ROW  = (typeof ROW  !== 'undefined') ? ROW  : 46;
+ const _GAP  = (typeof GAP  !== 'undefined') ? GAP  : 3;
+
+ const scalerClone = document.createElement('div');
  scalerClone.id = 'gc-sales';
- scalerClone.removeAttribute('style');
- // .gc 클래스 유지 → background:#fff, border:2px solid #333 CSS 적용됨
- // 위치/크기/회전은 인라인으로
+ scalerClone.className = 'gc';
  scalerClone.style.position = 'absolute';
  scalerClone.style.width = _gcW + 'px';
  scalerClone.style.height = _gcH + 'px';
@@ -10408,6 +10388,59 @@ function renderSalesMap(container, metrics, maxPerSales) {
  scalerClone.style.padding = '8px';
  scalerClone.style.boxSizing = 'border-box';
 
+ // zones 데이터로 집기 DOM 직접 생성
+ const COLORS = (typeof window.COLORS !== 'undefined') ? window.COLORS : [];
+ if (typeof zones !== 'undefined') {
+  zones.forEach(function(zOrig) {
+   const z = (typeof getEffectiveZoneAt === 'function')
+    ? getEffectiveZoneAt(zOrig, _salMoIdx) : zOrig;
+   if (!z) return; // _hidden
+   const el = document.createElement('div');
+   el.id = 'sz-' + z.id;
+   el.className = 'zb';
+   el.style.position = 'absolute';
+   el.style.left   = (z.col * (_CELL + _GAP) + 8) + 'px';
+   el.style.top    = (z.row * (_ROW  + _GAP) + 8) + 'px';
+   el.style.width  = (z.cols * _CELL + (z.cols - 1) * _GAP) + 'px';
+   el.style.height = (z.rows * _ROW  + (z.rows - 1) * _GAP) + 'px';
+   el.style.borderRadius = '5px';
+   el.style.boxSizing = 'border-box';
+   // 색상
+   const col = COLORS.find(function(c){ return c.key === z.color; });
+   if (col) {
+    el.style.background = col.bg;
+    el.style.border = '2px solid ' + col.bc;
+   } else if (z.color && z.color.startsWith('custom_')) {
+    const hex = '#' + z.color.slice(7);
+    el.style.background = hex + '2e';
+    el.style.border = '2px solid ' + hex;
+   } else {
+    el.style.background = '#e5e7eb';
+    el.style.border = '2px solid #9ca3af';
+   }
+   // 기둥/벽부
+   if (z.color === 'cpillar' || z.type === '기둥' || z.type === '벽부') {
+    el.classList.add('cpillar');
+   }
+   // 입구
+   if (z.type === '입구' || (z.color && z.color.startsWith('ent'))) {
+    el.style.background = 'transparent';
+    el.style.border = 'none';
+    el.style.pointerEvents = 'none';
+   }
+   // 회전
+   if (z.rotation) {
+    el.style.transform = 'rotate(' + z.rotation + 'deg)';
+    el.style.transformOrigin = 'center center';
+   }
+   const zi = document.createElement('div');
+   zi.className = 'zi';
+   zi.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;padding:3px 4px;box-sizing:border-box;overflow:hidden;gap:2px;position:relative;z-index:1;';
+   el.appendChild(zi);
+   scalerClone.appendChild(el);
+  });
+ }
+
  innerWrap.appendChild(scalerClone);
 
  // salesMapScaler 크기 = bbox 크기
@@ -10415,23 +10448,6 @@ function renderSalesMap(container, metrics, maxPerSales) {
  scaler.style.height = _bboxH + 'px';
 
  const gcClone = scalerClone; // 이하 코드 호환성
-
- // 핸들 요소 일괄 제거 (forEach remove보다 한번에 처리)
- scalerClone.querySelectorAll('.rh,.rh-rot,.bb-overlay,.mz-overlay').forEach(function(el){ el.remove(); });
-
- // 도면 탭의 cat-dimmed/cat-highlighted 클래스 및 opacity 인라인 스타일 초기화
- // 클래스 제거 최적화: 한 번의 querySelectorAll로 처리
- const _dimmedEls = scalerClone.querySelectorAll(
- '.cat-dimmed,.cat-highlighted,.sel,.drag-selected,.multi-sel,.dragging,.hl'
- );
- _dimmedEls.forEach(el => {
- el.classList.remove('cat-dimmed','cat-highlighted','sel','drag-selected','multi-sel','dragging','hl');
- });
- // opacity/filter 초기화는 .zb에만 (개수 줄임)
- scalerClone.querySelectorAll('.zb[style*="opacity"],.zb[style*="filter"]').forEach(el => {
- el.style.opacity = '';
- el.style.filter = '';
- });
 
  const metricMap = {};
  metrics.forEach(m => { metricMap[m.z.id] = m; });
@@ -10447,42 +10463,15 @@ function renderSalesMap(container, metrics, maxPerSales) {
  (g.zoneIds || []).forEach(zid => { zoneGroupMap[zid] = { gid, g }; });
  });
 
- // ── zones Map 생성 (O(n²) → O(n) 최적화) ──
+ // ── zones Map 생성 ──
  const _zonesMap = new Map();
  if (typeof zones !== 'undefined') {
  zones.forEach(function(z) { _zonesMap.set(z.id, z); });
  }
 
- // ── currentSalesMonth 기준으로 집기 위치/크기/숨김 업데이트 ──
- // cloneNode는 curMonthIdx 기준 DOM이라, 평당매출 월과 다를 수 있음
- const _salMoIdx = (window.currentSalesMonth !== null && window.currentSalesMonth !== undefined)
-  ? window.currentSalesMonth : curMonthIdx;
- const _CELL = (typeof CELL !== 'undefined') ? CELL : 72;
- const _ROW = (typeof ROW !== 'undefined') ? ROW : 46;
- const _GAP = (typeof GAP !== 'undefined') ? GAP : 3;
- scalerClone.querySelectorAll('.zb').forEach(zEl => {
-  const _zid = zEl.id.replace('z-', '');
-  const _zOrig = _zonesMap.get(_zid);
-  if (!_zOrig) return;
-  const _effZ = (typeof getEffectiveZoneAt === 'function')
-   ? getEffectiveZoneAt(_zOrig, _salMoIdx) : _zOrig;
-  if (!_effZ) {
-   // _hidden: 이 달에 없는 집기 숨김
-   zEl.style.display = 'none';
-   return;
-  }
-  // 위치/크기를 currentSalesMonth 기준으로 업데이트
-  zEl.style.left = (_effZ.col * (_CELL + _GAP) + 8) + 'px';
-  zEl.style.top  = (_effZ.row * (_ROW  + _GAP) + 8) + 'px';
-  zEl.style.width  = (_effZ.cols * _CELL + (_effZ.cols - 1) * _GAP) + 'px';
-  zEl.style.height = (_effZ.rows * _ROW  + (_effZ.rows - 1) * _GAP) + 'px';
-  zEl.style.display = '';
- });
-
  // ── 1) 개별 집기 스타일 처리 ──
  scalerClone.querySelectorAll('.zb').forEach(zEl => {
- const zid = zEl.id.replace('z-', '');
- zEl.id = 'sz-' + zid;
+ const zid = zEl.id.replace('sz-', ''); // 이미 sz- 접두사
  const m = metricMap[zid];
 
  // 내부 텍스트 제거 + 중앙 정렬
