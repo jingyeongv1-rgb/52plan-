@@ -3082,53 +3082,47 @@ let undoHistory = [];
 let redoHistory = [];
 
 function saveUndoState() {
- // 현재 상태를 히스토리에 저장
- const snapshot = JSON.stringify(zones);
- // 마지막 상태와 같으면 저장 안함
+ const snapshot = JSON.stringify({
+  zones: zones,
+  monthZoneOverrides: monthZoneOverrides
+ });
  if (undoHistory.length > 0 && undoHistory[undoHistory.length - 1] === snapshot) return;
  undoHistory.push(snapshot);
  if (undoHistory.length > UNDO_MAX) undoHistory.shift();
- // 새 변경사항이 생기면 redo 스택 초기화
  redoHistory = [];
 }
 
+function _restoreState(snapshot) {
+ const state = JSON.parse(snapshot);
+ // zones 복원
+ const restoredZones = state.zones || state; // 구버전 호환 (zones만 있던 경우)
+ zones.length = 0;
+ restoredZones.forEach(z => zones.push(z));
+ // monthZoneOverrides 복원
+ const restoredOvr = state.monthZoneOverrides || {};
+ Object.keys(monthZoneOverrides).forEach(k => delete monthZoneOverrides[k]);
+ Object.assign(monthZoneOverrides, restoredOvr);
+}
+
 function undo() {
- if (undoHistory.length === 0) {
- showToast('️ 되돌릴 내용이 없습니다');
- return;
- }
- // 현재 상태를 redo 스택에 저장
- const current = JSON.stringify(zones);
+ if (undoHistory.length === 0) { showToast('️ 되돌릴 내용이 없습니다'); return; }
+ const current = JSON.stringify({ zones, monthZoneOverrides });
  redoHistory.push(current);
  if (redoHistory.length > REDO_MAX) redoHistory.shift();
-
- const prevState = undoHistory.pop();
- const restored = JSON.parse(prevState);
- zones.length = 0;
- restored.forEach(z => zones.push(z));
- multiSelIds.clear();
- selId = null;
- render();
+ _restoreState(undoHistory.pop());
+ multiSelIds.clear(); selId = null;
+ render(); syncToFirebase();
  showToast('↩️ 이전 상태로 복원됨 (' + undoHistory.length + '단계 남음)');
 }
 
 function redo() {
- if (redoHistory.length === 0) {
- showToast('️ 다시 실행할 내용이 없습니다');
- return;
- }
- // 현재 상태를 undo 스택에 저장
- const current = JSON.stringify(zones);
+ if (redoHistory.length === 0) { showToast('️ 다시 실행할 내용이 없습니다'); return; }
+ const current = JSON.stringify({ zones, monthZoneOverrides });
  undoHistory.push(current);
  if (undoHistory.length > UNDO_MAX) undoHistory.shift();
-
- const nextState = redoHistory.pop();
- const restored = JSON.parse(nextState);
- zones.length = 0;
- restored.forEach(z => zones.push(z));
- multiSelIds.clear();
- selId = null;
- render();
+ _restoreState(redoHistory.pop());
+ multiSelIds.clear(); selId = null;
+ render(); syncToFirebase();
  showToast('↪️ 다시 실행됨 (' + redoHistory.length + '단계 남음)');
 }
 
@@ -3171,10 +3165,11 @@ function getMonthZoneOverride(zoneId) {
  return result;
 }
 
-// 현재 월의 오버라이드가 적용된 구역 반환
+// 현재 월의 오버라이드가 적용된 구역 반환 (_hidden이면 null 반환)
 function getEffectiveZone(z) {
  const ovr = getMonthZoneOverride(z.id);
  if (!ovr) return z;
+ if (ovr._hidden) return null; // 이 달 이후 삭제된 집기
  return Object.assign({}, z, ovr);
 }
 
@@ -3607,8 +3602,9 @@ function render(){
  const _catFocusIds = (__rawFocusIds && __rawFocusIds.size > 0) ? __rawFocusIds : null;
 
  zones.forEach(z=>{
- // 월별 구역 레이아웃 오버라이드 적용
+ // 월별 구역 레이아웃 오버라이드 적용 (_hidden이면 null)
  z = getEffectiveZone(z);
+ if (!z) return; // 이 달 이후 삭제된 집기는 렌더 안 함
  const el=document.createElement('div');
  el.id='z-'+z.id;
  // 전주 대비 변동 여부 체크
@@ -4974,7 +4970,7 @@ function upd(f,v){
  // 위치/크기 필드: zones 원본은 건드리지 않고 월별 오버라이드에만 저장
  if(['col','row','cols','rows'].includes(f)){
   // 현재 적용 중인 오버라이드(또는 원본)에서 나머지 필드를 가져와 합산
-  const eff = getEffectiveZone(z);
+  const eff = getEffectiveZone(z)||z;
   const merged = {col:eff.col, row:eff.row, cols:eff.cols, rows:eff.rows};
   merged[f] = +v;
   saveMonthZoneOverride(z.id, merged);
@@ -5124,7 +5120,9 @@ function calcSnapGuides(movingIds, testPos){
  movingIds.forEach(mid=>{
  const mp = testPos[mid]; if(!mp) return;
  others.forEach(oz=>{
- const op = pxPos(getEffectiveZone(oz));
+ const effOz = getEffectiveZone(oz);
+ if (!effOz) return; // _hidden 집기 제외
+ const op = pxPos(effOz);
 
  // X축 — 수직 가이드선
  [
@@ -5180,7 +5178,7 @@ function startPixelDrag(e, startId){
  const startPx={};
  movingIds.forEach(id=>{
  const z=zones.find(x=>x.id===id); if(!z) return;
- const eff=getEffectiveZone(z);
+ const eff=getEffectiveZone(z)||z;
  startPx[id]={ l:px(eff.col)+8, t:py(eff.row)+8 };
  });
 
@@ -5484,14 +5482,14 @@ function matchSize(mode){
 
 /** 단일 선택 집기를 기준으로 — 다중 선택된 것들에 크기 복사 */
 function matchFromSingle(mode){
- const base = zones.find(z=>z.id===selId);
- if(!base) return showToast('먼저 기준 집기를 선택하세요');
+ const baseZ = zones.find(z=>z.id===selId);
+ if(!baseZ) return showToast('먼저 기준 집기를 선택하세요');
+ const base = getEffectiveZone(baseZ) || baseZ; // 오버라이드 적용된 실제 크기
 
  let targets;
  if(mode==='sameRow'){
- // 같은 행(row 반올림 일치)에 있는 집기들
  const baseRow = Math.round(base.row);
- targets = zones.filter(z=>z.id!==selId && Math.round(z.row)===baseRow);
+ targets = zones.filter(z=>z.id!==selId && Math.round((getEffectiveZone(z)||z).row)===baseRow);
  if(targets.length===0) return showToast('같은 행에 다른 집기가 없어요');
  } else {
  targets = getMultiSelArray().filter(z=>z.id!==selId);
@@ -5500,11 +5498,16 @@ function matchFromSingle(mode){
 
  saveUndoState();
  targets.forEach(z=>{
- if(mode==='both'||mode==='width') z.cols = base.cols;
- if(mode==='both'||mode==='height') z.rows = base.rows;
- if(mode==='sameRow') z.rows = base.rows;
+ const eff = getEffectiveZone(z) || z;
+ const ovr = {col:eff.col, row:eff.row, cols:eff.cols, rows:eff.rows};
+ if(mode==='both'||mode==='width') ovr.cols = base.cols;
+ if(mode==='both'||mode==='height') ovr.rows = base.rows;
+ if(mode==='sameRow') ovr.rows = base.rows;
+ saveMonthZoneOverride(z.id, ovr);
  });
- render(); selZone(selId);
+ render();
+ syncToFirebase();
+ selZone(selId);
  showToast(` ${targets.length}개 집기에 크기 적용`);
 }
 
@@ -5559,13 +5562,13 @@ function restoreMultiSel(arr){
 }
 function updPosX(v){
  const z=zones.find(x=>x.id===selId);if(!z)return;
- const eff=getEffectiveZone(z);
+ const eff=getEffectiveZone(z)||z;
  saveMonthZoneOverride(z.id,{col:Math.max(0,v),row:eff.row,cols:eff.cols,rows:eff.rows});
  render(); renderPanel(); syncToFirebase();
 }
 function updPosY(v){
  const z=zones.find(x=>x.id===selId);if(!z)return;
- const eff=getEffectiveZone(z);
+ const eff=getEffectiveZone(z)||z;
  saveMonthZoneOverride(z.id,{col:eff.col,row:Math.max(0,v),cols:eff.cols,rows:eff.rows});
  render(); renderPanel(); syncToFirebase();
 }
@@ -5733,54 +5736,50 @@ function shrinkCanvas(dir) {
 
 function resizeSel(dc,dr){
  const z=zones.find(x=>x.id===selId);if(!z)return showToast('먼저 구역 선택');
- const eff=getEffectiveZone(z);
+ const eff=getEffectiveZone(z)||z;
  saveMonthZoneOverride(z.id,{col:eff.col,row:eff.row,cols:Math.max(0.5,Math.min(15,eff.cols+dc)),rows:Math.max(0.5,Math.min(10,eff.rows+dr))});
  render();renderPanel();syncToFirebase();
 }
 function moveSel(dc,dr){
  const z=zones.find(x=>x.id===selId);if(!z)return showToast('먼저 구역 선택');
- const eff=getEffectiveZone(z);
+ const eff=getEffectiveZone(z)||z;
  saveMonthZoneOverride(z.id,{col:Math.max(0,eff.col+dc),row:Math.max(0,eff.row+dr),cols:eff.cols,rows:eff.rows});
  render();renderPanel();syncToFirebase();
 }
 function deleteSel(){ saveUndoState();
  if(!selId)return showToast('먼저 구역 선택');
  const _delZone = zones.find(z=>z.id===selId);
- if(!confirm(`'${_delZone?.name}' 삭제?`))return;
+ if(!confirm(`'${_delZone?.name}' 삭제?\n(${MONTHS[curMonthIdx]?.label || (curMonthIdx+1)+'월'} 이후부터 사라집니다. 이전 달은 유지됩니다.)`))return;
  const _delZid = selId;
 
- // zones 배열에서 제거
- const _di=zones.findIndex(z=>z.id===_delZid);if(_di>=0)zones.splice(_di,1);selId=null;render();
+ // 현재 달 이후만 숨김 처리 (zones 원본 유지 — 이전 달은 그대로 보임)
+ saveMonthZoneOverride(_delZid, {_hidden: true});
+ selId=null;
+ render();
  document.getElementById('rpEmp').style.display='';document.getElementById('rpEdit').style.display='none';
 
  // ── 평당매출 관련 데이터에서도 해당 구역 정리 ──
- // salesData / areaData
  if(window.salesData) delete window.salesData[_delZid];
  if(window.areaData) delete window.areaData[_delZid];
- // storeSalesDataMap / storeAreaDataMap
  if(window.storeSalesDataMap && window.storeSalesDataMap[currentStore])
  delete window.storeSalesDataMap[currentStore][_delZid];
  if(window.storeAreaDataMap && window.storeAreaDataMap[currentStore])
  delete window.storeAreaDataMap[currentStore][_delZid];
- // salesGroups zoneIds에서 제거
  if(window.salesGroups){
  Object.values(window.salesGroups).forEach(function(g){
  if(g.zoneIds){ const _gi=g.zoneIds.indexOf(_delZid); if(_gi>=0) g.zoneIds.splice(_gi,1); }
  });
  }
- // storeSalesGroupsMap 백업
  if(!window.storeSalesGroupsMap) window.storeSalesGroupsMap={};
  _safeSaveGroups(currentStore, window.salesGroups);
- // monthlySales에서도 제거
  if(window.monthlySalesStore && window.monthlySalesStore[currentStore]){
  Object.values(window.monthlySalesStore[currentStore]).forEach(function(mo){
  if(mo && mo[_delZid]) delete mo[_delZid];
  });
  }
 
- // Firebase 동기화
- if(typeof syncToFirebase==='function') syncToFirebase();
- showToast('삭제 완료');
+ syncToFirebase();
+ showToast('삭제 완료 (이전 달에서는 유지됨)');
 }
 
 /* ──────────────────────────────────────────
@@ -7473,21 +7472,20 @@ let clipboard = null; // 복사된 zone 데이터 (배열, 다중 선택 지원)
 let pasteOffset = 0; // 여러 번 붙여넣을 때마다 살짝 오프셋
 
 function copyZone() {
- // 단일 or 다중 선택 모두 지원
  const ids = multiSelIds.size > 0 ? [...multiSelIds] : (selId ? [selId] : []);
  if (ids.length === 0) return showToast('복사할 집기를 먼저 선택하세요');
 
  clipboard = ids.map(id => {
  const z = zones.find(x => x.id === id);
- return z ? JSON.parse(JSON.stringify(z)) : null;
+ if (!z) return null;
+ // 오버라이드가 적용된 실제 위치로 복사
+ const eff = getEffectiveZone(z);
+ return JSON.parse(JSON.stringify(eff));
  }).filter(Boolean);
 
  pasteOffset = 1;
-
- // 버튼 활성화
  const btn = document.getElementById('btnPaste');
  if (btn) btn.style.opacity = '1';
-
  showToast(` ${clipboard.length}개 집기 복사됨 — Ctrl+V로 붙여넣기`);
 }
 
@@ -7499,17 +7497,17 @@ function pasteZone() {
  clipboard.forEach(src => {
  const newId = 'z' + Date.now() + Math.floor(Math.random() * 9999);
  const clone = Object.assign({}, JSON.parse(JSON.stringify(src)), {
- id: newId,
- col: src.col + pasteOffset,
- row: src.row + pasteOffset,
+  id: newId,
+  col: src.col + pasteOffset,
+  row: src.row + pasteOffset,
  });
  zones.push(clone);
  newIds.push(newId);
+ // 현재 달에 오버라이드 등록 (붙여넣은 위치가 현재 달 기준)
+ saveMonthZoneOverride(newId, {col: clone.col, row: clone.row, cols: clone.cols, rows: clone.rows});
  });
 
  pasteOffset += 1;
-
- // 붙여넣은 것들 선택
  multiSelIds.clear();
  if (newIds.length === 1) {
  selZone(newIds[0]);
@@ -7519,6 +7517,7 @@ function pasteZone() {
  }
 
  render();
+ syncToFirebase();
  if (newIds.length > 1) {
  newIds.forEach(id => {
  const el = document.getElementById('z-' + id);
@@ -7529,37 +7528,33 @@ function pasteZone() {
 }
 
 function dupeZone() {
- // 바로 복사+붙여넣기 (오프셋 1칸)
  const ids = multiSelIds.size > 0 ? [...multiSelIds] : (selId ? [selId] : []);
  if (ids.length === 0) return showToast('복제할 집기를 먼저 선택하세요');
  saveUndoState();
 
  const newIds = [];
  ids.forEach(id => {
- const src = zones.find(x => x.id === id);
- if (!src) return;
+ const src = zones.find(x => x.id === id); if (!src) return;
+ const eff = getEffectiveZone(src) || src; // 실제 위치 기준
  const newId = 'z' + Date.now() + Math.floor(Math.random() * 9999);
- zones.push(Object.assign({}, JSON.parse(JSON.stringify(src)), {
- id: newId,
- col: src.col + 1,
- row: src.row + 1,
- }));
+ const clone = Object.assign({}, JSON.parse(JSON.stringify(src)), {
+  id: newId, col: eff.col + 1, row: eff.row + 1,
+ });
+ zones.push(clone);
+ saveMonthZoneOverride(newId, {col: clone.col, row: clone.row, cols: eff.cols, rows: eff.rows});
  newIds.push(newId);
  });
 
  multiSelIds.clear();
- if (newIds.length === 1) {
- selZone(newIds[0]);
- } else {
- newIds.forEach(id => multiSelIds.add(id));
- selId = null;
- }
+ if (newIds.length === 1) { selZone(newIds[0]); }
+ else { newIds.forEach(id => multiSelIds.add(id)); selId = null; }
 
  render();
+ syncToFirebase();
  if (newIds.length > 1) {
  newIds.forEach(id => {
- const el = document.getElementById('z-' + id);
- if (el) { el.classList.add('multi-sel'); el.classList.remove('sel'); }
+  const el = document.getElementById('z-' + id);
+  if (el) { el.classList.add('multi-sel'); el.classList.remove('sel'); }
  });
  }
  showToast(`⧉ ${newIds.length}개 집기 복제 완료`);
