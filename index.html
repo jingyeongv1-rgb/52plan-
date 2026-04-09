@@ -9379,12 +9379,15 @@ function getImproveSuggestion(m) {
 function calcSalesMetrics() {
  ensureSampleSalesData();
  const nonSales = new Set(['입구','기둥']);
- const dataZones = zones.filter(z =>
- !nonSales.has(z.name) &&
- !nonSales.has(z.type) &&
- z.type !== '벽부' &&
- !String(z.color).startsWith('ent') &&
- z.color !== 'cpillar'
+ // getEffectiveZone으로 월별 오버라이드(위치/크기/숨김) 반영
+ const dataZones = zones
+ .map(z => (typeof getEffectiveZone === 'function') ? getEffectiveZone(z) : z)
+ .filter(z => z && // _hidden 제외
+  !nonSales.has(z.name) &&
+  !nonSales.has(z.type) &&
+  z.type !== '벽부' &&
+  !String(z.color).startsWith('ent') &&
+  z.color !== 'cpillar'
  );
 
  // ── 종합 모드: 월별 데이터 취합 → 평당매출 평균 ──
