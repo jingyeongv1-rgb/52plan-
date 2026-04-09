@@ -1143,6 +1143,11 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
  if (data.seasonOverrides && window.storeSeasonOverrides) {
  window.storeSeasonOverrides[store] = JSON.parse(JSON.stringify(data.seasonOverrides));
  }
+ // monthZoneOverrides 복원
+ if (data.monthZoneOverrides && typeof monthZoneOverrides !== "undefined") {
+  Object.keys(monthZoneOverrides).forEach(k => delete monthZoneOverrides[k]);
+  Object.assign(monthZoneOverrides, data.monthZoneOverrides);
+ }
  // catRegions 복원
  if (data.catRegions && Array.isArray(data.catRegions)) {
  const _cr = JSON.parse(JSON.stringify(data.catRegions));
@@ -1231,6 +1236,26 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
       window.storeSalesGroupsMap[store] = JSON.parse(JSON.stringify(data.salesGroups));
     }
  }
+ }
+
+ // monthZoneOverrides 실시간 복원 (초기 로드 + 이후 수신 모두 적용)
+ if (data && data.monthZoneOverrides && typeof monthZoneOverrides !== 'undefined'
+   && store === (window.currentStore || 'gs')) {
+  Object.keys(monthZoneOverrides).forEach(k => delete monthZoneOverrides[k]);
+  Object.assign(monthZoneOverrides, data.monthZoneOverrides);
+ }
+
+ // 평당매출 탭이 열려 있고 특정 월을 보고 있으면 해당 월의 salesGroups 즉시 반영
+ if (store === (window.currentStore || 'gs')
+   && window.currentSalesMonth !== null && window.currentSalesMonth !== undefined
+   && data && data.monthlySales) {
+  var _curMKey = 'm' + window.currentSalesMonth;
+  var _curMD = data.monthlySales[_curMKey];
+  if (_curMD && _curMD.salesGroups && Object.keys(_curMD.salesGroups).length > 0) {
+   window.salesGroups = JSON.parse(JSON.stringify(_curMD.salesGroups));
+   if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
+   window.storeSalesGroupsMap[store] = JSON.parse(JSON.stringify(_curMD.salesGroups));
+  }
  }
 
  // 서버 스냅샷 저장 (diff 계산용)
@@ -2203,9 +2228,46 @@ window.onerror = function(msg, src, line, col, err) {
  <button class="tbb admin-only" onclick="shrinkCanvas('right')" title="오른쪽 빈 열 제거" style="color:#9ca3af;font-size:9px;">◀ 우축소</button>
  <button class="tbb admin-only" onclick="shrinkCanvas('bottom')" title="아래쪽 빈 행 제거" style="color:#9ca3af;font-size:9px;">▲ 하축소</button>
  <span class="thint" id="tbHint">구역 클릭 → 선택 / Ctrl+클릭 → 다중 선택 / 드래그 → 이동</span>
+ <div class="tsep admin-only"></div>
+ <span class="tbl admin-only" style="color:#7c3aed;">월별 도면</span>
+ <button class="tbb admin-only" onclick="openMonthLayoutModal()"
+  style="background:#f5f3ff;color:#6d28d9;border-color:#c4b5fd;font-weight:700;"
+  title="월별 도면 변경 현황 및 관리">📅 월별 관리</button>
+ <button class="tbb admin-only" onclick="resetSelZoneThisMonth()"
+  style="background:#fff7ed;color:#c2410c;border-color:#fdba74;"
+  id="btnResetThisMonth"
+  title="선택된 구역의 이번 달 위치를 기본으로 되돌리기">↩ 이 구역 원위치</button>
+ <button class="tbb admin-only" onclick="clearMonthZoneOverrides()"
+  style="background:#fef2f2;color:#dc2626;border-color:#fca5a5;"
+  title="이번 달 도면 전체를 기본으로 되돌리기">🗑 이달 초기화</button>
 </div>
 
 <!-- 동시 편집 알림 배너 -->
+
+<!-- ═══ 월별 도면 관리 모달 ═══ -->
+<div id="monthLayoutModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center;">
+ <div style="background:#fff;border-radius:12px;width:480px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;">
+  <!-- 헤더 -->
+  <div style="background:#1e1b4b;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+   <div>
+    <div style="font-size:15px;font-weight:900;color:#fff;">📅 월별 도면 관리</div>
+    <div style="font-size:11px;color:#a5b4fc;margin-top:2px;">월마다 구역 위치·크기를 다르게 관리합니다</div>
+   </div>
+   <button onclick="closeMonthLayoutModal()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;">✕</button>
+  </div>
+  <!-- 안내 -->
+  <div style="padding:12px 20px;background:#f5f3ff;border-bottom:1px solid #e9d5ff;font-size:11px;color:#6d28d9;flex-shrink:0;">
+   💡 구역을 드래그하거나 크기를 바꾸면 <strong>현재 월부터 이후 달에 자동 적용</strong>됩니다.<br>
+   이전 달은 영향받지 않으며, 언제든 초기화할 수 있습니다.
+  </div>
+  <!-- 본문 -->
+  <div id="monthLayoutModalBody" style="overflow-y:auto;flex:1;padding:4px 0;"></div>
+  <!-- 푸터 -->
+  <div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;background:#fafafa;">
+   <button onclick="closeMonthLayoutModal()" style="padding:7px 18px;background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">닫기</button>
+  </div>
+ </div>
+</div>
 
 <!-- MAIN -->
 <div class="main-wrap" id="planView">
@@ -2366,6 +2428,14 @@ window.onerror = function(msg, src, line, col, err) {
 
  <!-- 기존 뷰어 배치상품 박스 (레거시, 숨김) -->
  <div id="viewerProdBox" style="display:none;"></div>
+
+ <!-- 월별 위치 변경 알림 배지 (관리자 전용) -->
+ <div id="monthOvrBadge" class="admin-only" style="display:none;background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#6d28d9;font-weight:700;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+   <span id="monthOvrBadgeText">📅 이번 달 위치 변경됨</span>
+   <button onclick="resetSelZoneThisMonth()" style="font-size:10px;background:#6d28d9;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;white-space:nowrap;">↩ 원위치</button>
+  </div>
+ </div>
 
  <!-- ① 구역 제목 — 관리자 전용 -->
  <div class="rp-section open admin-only" data-sec="title">
@@ -3083,6 +3153,31 @@ let selId=null, editMode=true, resizing=null, dragId=null;
 let multiSelIds = new Set(); // 다중 선택된 구역 IDs
 let curWkIdx=0, curMonthIdx=0;
 
+// ═══ 월별 구역 레이아웃 오버라이드 ═══
+// 구조: { 월번호(0~11): { zoneId: {col, row, cols, rows, ...변경필드} } }
+// 특정 월부터 구역의 위치/크기가 달라질 때 사용
+// 렌더링 시 curMonthIdx 이하의 가장 최근 오버라이드 적용
+let monthZoneOverrides = {};
+
+// 현재 월에 적용되는 구역별 오버라이드 반환 (가장 최근 월 기준)
+function getMonthZoneOverride(zoneId) {
+ let result = null;
+ for (let m = curMonthIdx; m >= 0; m--) {
+  if (monthZoneOverrides[m] && monthZoneOverrides[m][zoneId]) {
+   result = monthZoneOverrides[m][zoneId];
+   break;
+  }
+ }
+ return result;
+}
+
+// 현재 월의 오버라이드가 적용된 구역 반환
+function getEffectiveZone(z) {
+ const ovr = getMonthZoneOverride(z.id);
+ if (!ovr) return z;
+ return Object.assign({}, z, ovr);
+}
+
 // ═══════════ UTILS ═══════════
 function getSeasonBadge(zoneId, prod){
  if(!prod) return null;
@@ -3512,6 +3607,8 @@ function render(){
  const _catFocusIds = (__rawFocusIds && __rawFocusIds.size > 0) ? __rawFocusIds : null;
 
  zones.forEach(z=>{
+ // 월별 구역 레이아웃 오버라이드 적용
+ z = getEffectiveZone(z);
  const el=document.createElement('div');
  el.id='z-'+z.id;
  // 전주 대비 변동 여부 체크
@@ -4291,6 +4388,22 @@ function renderPanel(){
  document.getElementById('rpEmp').style.display='none';
  document.getElementById('rpEdit').style.display= isViewer ? 'none' : '';
 
+ // 월별 위치 변경 배지 갱신
+ const _badge = document.getElementById('monthOvrBadge');
+ const _badgeTxt = document.getElementById('monthOvrBadgeText');
+ if (_badge && !isViewer) {
+  const _ovr = getMonthZoneOverride(z.id);
+  if (_ovr) {
+   const _mo = MONTHS[curMonthIdx]?.label || (curMonthIdx+1)+'월';
+   if (_badgeTxt) _badgeTxt.textContent = '📅 '+_mo+' 위치 변경됨';
+   _badge.style.display = '';
+  } else {
+   _badge.style.display = 'none';
+  }
+ } else if (_badge) {
+  _badge.style.display = 'none';
+ }
+
  // ① 제목 input (굵은 글씨 수정)
  document.getElementById('rpTitle').value=z.name;
 
@@ -4856,8 +4969,19 @@ function upd(f,v){
  if(f==='cols')v=Math.max(1,Math.min(9,+v));
  if(f==='rows')v=Math.max(1,Math.min(7,+v));
  if(f==='fontSize') { z.fontSize=(v&&v>0)?+v:null; render(); return; }
- // priLabel: store custom label text, show on zone
  if(f==='priLabel'){z.priLabel=v;z.pri='__custom__';render();return;}
+
+ // 위치/크기 필드: zones 원본은 건드리지 않고 월별 오버라이드에만 저장
+ if(['col','row','cols','rows'].includes(f)){
+  // 현재 적용 중인 오버라이드(또는 원본)에서 나머지 필드를 가져와 합산
+  const eff = getEffectiveZone(z);
+  const merged = {col:eff.col, row:eff.row, cols:eff.cols, rows:eff.rows};
+  merged[f] = +v;
+  saveMonthZoneOverride(z.id, merged);
+  render();
+  return;
+ }
+
  z[f]=v;
  render();
  // re-render panel selectively (don't call full renderPanel to avoid focus loss)
@@ -4873,7 +4997,101 @@ function upd(f,v){
  }
 }
 
-// ═══════════ DRAG & RESIZE + SMART GUIDES (일러스트레이터 스타일) ═══════════
+// ─────────────────────────────────────────────────────────────
+// 월별 구역 레이아웃 오버라이드 저장/삭제/초기화
+// -----------------------------------------------------------------
+
+// 현재 월(curMonthIdx)에 구역 오버라이드 저장
+function saveMonthZoneOverride(zoneId, fields) {
+ if (!monthZoneOverrides[curMonthIdx]) monthZoneOverrides[curMonthIdx] = {};
+ const existing = monthZoneOverrides[curMonthIdx][zoneId] || {};
+ monthZoneOverrides[curMonthIdx][zoneId] = Object.assign({}, existing, fields);
+ syncToFirebase();
+}
+
+// 현재 월의 특정 구역 오버라이드 삭제
+function removeMonthZoneOverride(zoneId) {
+ if (!monthZoneOverrides[curMonthIdx]) return;
+ delete monthZoneOverrides[curMonthIdx][zoneId];
+ if (Object.keys(monthZoneOverrides[curMonthIdx]).length === 0) {
+  delete monthZoneOverrides[curMonthIdx];
+ }
+ render(); renderPanel(); syncToFirebase();
+}
+
+// 현재 월 전체 오버라이드 초기화 (기본 도면으로 복원)
+function clearMonthZoneOverrides() {
+ const mo = MONTHS[curMonthIdx]?.label || (curMonthIdx+1)+'월';
+ if (!monthZoneOverrides[curMonthIdx] || Object.keys(monthZoneOverrides[curMonthIdx]).length === 0) {
+  showToast(mo+' 도면은 기본 도면과 동일합니다'); return;
+ }
+ if (!confirm(mo+' 도면 변경사항을 모두 초기화하고 기본 도면으로 되돌릴까요?')) return;
+ delete monthZoneOverrides[curMonthIdx];
+ render(); renderPanel(); syncToFirebase();
+ showToast('✅ '+mo+' 도면 초기화 완료');
+}
+
+// 선택된 구역의 현재 월 오버라이드만 삭제 (이 구역만 기본 위치로)
+function resetSelZoneThisMonth() {
+ if (!selId) { showToast('먼저 구역을 선택하세요'); return; }
+ const mo = MONTHS[curMonthIdx]?.label || (curMonthIdx+1)+'월';
+ const z = zones.find(x=>x.id===selId);
+ const ovr = getMonthZoneOverride(selId);
+ if (!ovr) { showToast(mo+': 이 구역은 변경된 위치가 없습니다'); return; }
+ // 이 구역의 현재 월 오버라이드만 삭제
+ if (!confirm(`"${z?.name}" 구역의 ${mo} 위치 변경을 취소할까요?`)) return;
+ removeMonthZoneOverride(selId);
+ showToast(`✅ "${z?.name}" ${mo} 위치 초기화`);
+}
+
+// 현재 월 도면 변경 개수 반환
+function getMonthOverrideCount(moIdx) {
+ return Object.keys(monthZoneOverrides[moIdx] || {}).length;
+}
+
+// 월별 도면 현황 모달 열기
+function openMonthLayoutModal() {
+ const el = document.getElementById('monthLayoutModal');
+ if (el) { renderMonthLayoutModal(); el.style.display='flex'; }
+}
+function closeMonthLayoutModal() {
+ const el = document.getElementById('monthLayoutModal');
+ if (el) el.style.display='none';
+}
+
+function renderMonthLayoutModal() {
+ const body = document.getElementById('monthLayoutModalBody');
+ if (!body) return;
+ let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+ html += '<tr style="background:#f3f4f6;"><th style="padding:7px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">월</th><th style="padding:7px 10px;text-align:center;border-bottom:1px solid #e5e7eb;">변경 구역 수</th><th style="padding:7px 10px;text-align:center;border-bottom:1px solid #e5e7eb;">관리</th></tr>';
+ MONTHS.forEach(m => {
+  const cnt = getMonthOverrideCount(m.idx);
+  const isActive = m.idx === curMonthIdx;
+  html += `<tr style="border-bottom:1px solid #f3f4f6;${isActive?'background:#f0fdf4;':''}">
+   <td style="padding:7px 10px;font-weight:${isActive?'800':'600'};color:${isActive?'#16a34a':'#374151'};">${m.label}${isActive?' ◀ 현재':''}</td>
+   <td style="padding:7px 10px;text-align:center;">${cnt>0?`<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-weight:700;">${cnt}개 변경</span>`:'<span style="color:#9ca3af;">기본 도면</span>'}</td>
+   <td style="padding:7px 10px;text-align:center;">${cnt>0?`<button onclick="jumpToMonthAndClose(${m.idx})" style="font-size:10px;padding:3px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">이동</button><button onclick="confirmClearMonth(${m.idx})" style="font-size:10px;padding:3px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;">초기화</button>`:'<span style="color:#d1d5db;font-size:10px;">—</span>'}</td>
+  </tr>`;
+ });
+ html += '</table>';
+ body.innerHTML = html;
+}
+
+function jumpToMonthAndClose(mi) {
+ closeMonthLayoutModal();
+ jumpToMonth(mi);
+}
+
+function confirmClearMonth(mi) {
+ const mo = MONTHS[mi]?.label || (mi+1)+'월';
+ if (!confirm(mo+' 도면 변경사항을 초기화할까요?')) return;
+ delete monthZoneOverrides[mi];
+ render(); syncToFirebase();
+ renderMonthLayoutModal();
+ showToast('✅ '+mo+' 도면 초기화');
+}
+
+// ─────────────────────────────────────────────────────────────
 
 /* ── 집기 위치 헬퍼 ── */
 function pxPos(z){
@@ -4905,7 +5123,7 @@ function calcSnapGuides(movingIds, testPos){
  movingIds.forEach(mid=>{
  const mp = testPos[mid]; if(!mp) return;
  others.forEach(oz=>{
- const op = pxPos(oz);
+ const op = pxPos(getEffectiveZone(oz));
 
  // X축 — 수직 가이드선
  [
@@ -4960,8 +5178,15 @@ function startPixelDrag(e, startId){
 
  const startPx={};
  movingIds.forEach(id=>{
- const z=zones.find(x=>x.id===id); if(!z) return;
- startPx[id]={ l:px(z.col)+8, t:py(z.row)+8 };
+ const el=document.getElementById('z-'+id);
+ // 실제 화면에 렌더된 DOM 위치를 기준으로 시작점 계산 (오버라이드 반영된 위치)
+ if(el){
+  startPx[id]={ l:parseFloat(el.style.left)||0, t:parseFloat(el.style.top)||0 };
+ } else {
+  const z=zones.find(x=>x.id===id); if(!z) return;
+  const eff=getEffectiveZone(z);
+  startPx[id]={ l:px(eff.col)+8, t:py(eff.row)+8 };
+ }
  });
 
  pixelDrag={ startId, movingIds, startMouseX:e.clientX, startMouseY:e.clientY, startPx, moved:false };
@@ -5019,9 +5244,12 @@ function onPixelDragMove(e){
  const nt=Math.max(8, sp.t+finalDy);
  el.style.left=nl+'px';
  el.style.top =nt+'px';
- const z=zones.find(x=>x.id===id); if(!z) return;
- z.col=Math.max(0,(nl-8)/(CELL+GAP));
- z.row=Math.max(0,(nt-8)/(ROW+GAP));
+ // 드래그 중 임시 위치 기록 (zones 원본 수정 안 함)
+ if(!pixelDrag.curPos) pixelDrag.curPos={};
+ pixelDrag.curPos[id]={
+  col:Math.max(0,(nl-8)/(CELL+GAP)),
+  row:Math.max(0,(nt-8)/(ROW+GAP))
+ };
  });
 }
 
@@ -5033,6 +5261,7 @@ function onPixelDragEnd(e){
 
  const moved=pixelDrag.moved;
  const movingIds=pixelDrag.movingIds;
+ const curPos=pixelDrag.curPos || {}; // null 전에 먼저 꺼냄
  pixelDrag=null;
 
  document.querySelectorAll('.dragging').forEach(el=>{
@@ -5041,6 +5270,14 @@ function onPixelDragEnd(e){
 
  if(moved){
  saveUndoState();
+ // 월별 오버라이드에만 저장 (zones 원본은 절대 수정 안 함)
+ movingIds.forEach(id=>{
+  const pos = curPos[id];
+  if (!pos) return;
+  const col = Math.round(pos.col * 2) / 2;
+  const row = Math.round(pos.row * 2) / 2;
+  saveMonthZoneOverride(id, {col, row});
+ });
  render();
  movingIds.forEach(id=>{
  const el=document.getElementById('z-'+id); if(!el) return;
@@ -5108,10 +5345,13 @@ function onRM(e){
 
  el.style.left=nl+'px'; el.style.top=nt+'px';
  el.style.width=nw+'px'; el.style.height=nh+'px';
- z.col=Math.max(0,(nl-8)/(CELL+GAP));
- z.row=Math.max(0,(nt-8)/(ROW+GAP));
- z.cols=Math.max(0.2, nw/(CELL+GAP));
- z.rows=Math.max(0.2, nh/(ROW+GAP));
+ // 리사이즈 중간 임시 값 기록 (zones 원본 수정 안 함)
+ resizing._cur = {
+  col:Math.max(0,(nl-8)/(CELL+GAP)),
+  row:Math.max(0,(nt-8)/(ROW+GAP)),
+  cols:Math.max(0.2, nw/(CELL+GAP)),
+  rows:Math.max(0.2, nh/(ROW+GAP))
+ };
  positionHandles(el);
  updateBoundingBox();
 }
@@ -5123,6 +5363,16 @@ function onRE(){
  const el=document.getElementById('z-'+resizing.id);
  if(el) el.style.transition='';
  saveUndoState();
+ // 월별 오버라이드에만 저장 (zones 원본은 수정 안 함)
+ if(resizing._cur){
+  const c=resizing._cur;
+  saveMonthZoneOverride(resizing.id, {
+   col:Math.round(c.col*2)/2,
+   row:Math.round(c.row*2)/2,
+   cols:Math.round(c.cols*2)/2,
+   rows:Math.round(c.rows*2)/2
+  });
+ }
  resizing=null;
  document.removeEventListener('mousemove',onRM);
  document.removeEventListener('mouseup',onRE);
@@ -5316,11 +5566,15 @@ function restoreMultiSel(arr){
 }
 function updPosX(v){
  const z=zones.find(x=>x.id===selId);if(!z)return;
- z.col=Math.max(0,v); render(); renderPanel();
+ const eff=getEffectiveZone(z);
+ saveMonthZoneOverride(z.id,{col:Math.max(0,v),row:eff.row,cols:eff.cols,rows:eff.rows});
+ render(); renderPanel();
 }
 function updPosY(v){
  const z=zones.find(x=>x.id===selId);if(!z)return;
- z.row=Math.max(0,v); render(); renderPanel();
+ const eff=getEffectiveZone(z);
+ saveMonthZoneOverride(z.id,{col:eff.col,row:Math.max(0,v),cols:eff.cols,rows:eff.rows});
+ render(); renderPanel();
 }
 function updRotation(deg){
  const z=zones.find(x=>x.id===selId);if(!z)return;
@@ -5484,8 +5738,18 @@ function shrinkCanvas(dir) {
  storeZonesSnapshot[currentStore] = zones.map(function(z){ return Object.assign({}, z); });
 }
 
-function resizeSel(dc,dr){const z=zones.find(x=>x.id===selId);if(!z)return showToast('먼저 구역 선택');z.cols=Math.max(0.5,Math.min(15,z.cols+dc));z.rows=Math.max(0.5,Math.min(10,z.rows+dr));render();renderPanel();}
-function moveSel(dc,dr){const z=zones.find(x=>x.id===selId);if(!z)return showToast('먼저 구역 선택');z.col=Math.max(0,z.col+dc);z.row=Math.max(0,z.row+dr);render();renderPanel();}
+function resizeSel(dc,dr){
+ const z=zones.find(x=>x.id===selId);if(!z)return showToast('먼저 구역 선택');
+ const eff=getEffectiveZone(z);
+ saveMonthZoneOverride(z.id,{col:eff.col,row:eff.row,cols:Math.max(0.5,Math.min(15,eff.cols+dc)),rows:Math.max(0.5,Math.min(10,eff.rows+dr))});
+ render();renderPanel();
+}
+function moveSel(dc,dr){
+ const z=zones.find(x=>x.id===selId);if(!z)return showToast('먼저 구역 선택');
+ const eff=getEffectiveZone(z);
+ saveMonthZoneOverride(z.id,{col:Math.max(0,eff.col+dc),row:Math.max(0,eff.row+dr),cols:eff.cols,rows:eff.rows});
+ render();renderPanel();
+}
 function deleteSel(){ saveUndoState();
  if(!selId)return showToast('먼저 구역 선택');
  const _delZone = zones.find(z=>z.id===selId);
@@ -6249,6 +6513,7 @@ window._getSavePayload = function(store) {
     productMaster: JSON.parse(JSON.stringify(window.productMaster || [])),
     zoneProducts: JSON.parse(JSON.stringify(window.zoneProducts || {})),
     productSalesData: JSON.parse(JSON.stringify(window.productSalesData || {})),
+ monthZoneOverrides: JSON.parse(JSON.stringify(monthZoneOverrides)),
  savedAt: Date.now()
  };
  console.log('[PAYLOAD]', store, '| canvasRotation:', payload.canvasRotation, '| textRotation:', payload.textRotation, '| catTagPos:', payload.catTagPos);
@@ -12425,9 +12690,19 @@ function addSalesGroupClickListeners() {
  if (typeof window._refreshGroupSidePanel === 'function') window._refreshGroupSidePanel();
  // 테이블 그룹 뱃지 갱신
  updateSalesTableGroupBadges();
- // storeSalesGroupsMap 백업 + Firebase 동기화
+ // storeSalesGroupsMap 백업 + monthlySalesStore 현재 월 즉시 반영
  if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
  _safeSaveGroups(currentStore, window.salesGroups);
+ // 현재 보고 있는 월의 monthlySalesStore에도 즉시 반영 (Firebase 저장 전에 최신화)
+ if (window.currentSalesMonth !== null && window.currentSalesMonth !== undefined) {
+  if (!window.monthlySalesStore) window.monthlySalesStore = {};
+  if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
+  var _curKey = _salesMonthKey(window.currentSalesMonth);
+  var _existing = window.monthlySalesStore[currentStore][_curKey] || {};
+  window.monthlySalesStore[currentStore][_curKey] = Object.assign({}, _existing, {
+   salesGroups: JSON.parse(JSON.stringify(window.salesGroups))
+  });
+ }
  if (typeof syncToFirebase === 'function') syncToFirebase();
  };
  el.addEventListener('click', handler);
@@ -13965,6 +14240,7 @@ function applyZoneCategory(){
  renderCatFocusBar();
  showToast(def.label + ' 카테고리 적용 (' + _selectedZoneIds.size + '개 구역)');
  _selectedZoneIds.clear();
+ if(typeof syncToFirebase === 'function') syncToFirebase();
 }
 
 // 선택된 zone들의 카테고리 해제
@@ -13982,6 +14258,7 @@ function clearCatForZones(){
  _renderCatZoneBorders();
  renderCatFocusBar();
  showToast('카테고리 해제 완료');
+ if(typeof syncToFirebase === 'function') syncToFirebase();
 }
 
 // 현재 선택 초기화
@@ -14000,6 +14277,7 @@ function clearAllCatRegions(){
  _renderCatZoneBorders();
  renderCatFocusBar();
  showToast('카테고리 전체 삭제');
+ if(typeof syncToFirebase === 'function') syncToFirebase();
 }
 
 // zone 블록에 카테고리 컬러 테두리 렌더 (관리자 모드)
