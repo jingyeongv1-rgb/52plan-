@@ -1367,6 +1367,14 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
     window.productMaster = JSON.parse(JSON.stringify(data.productMaster || []));
     window.zoneProducts = JSON.parse(JSON.stringify(data.zoneProducts || {}));
     window.productSalesData = JSON.parse(JSON.stringify(data.productSalesData || {}));
+ // currentSalesMonth 기준 월별 salesGroups 즉시 적용
+ if (window.currentSalesMonth !== null && window.currentSalesMonth !== undefined && data.monthlySales) {
+  var _rcMKey = 'm' + window.currentSalesMonth;
+  var _rcMD = (window.monthlySalesStore[store] || {})[_rcMKey];
+  if (_rcMD && _rcMD.salesGroups && Object.keys(_rcMD.salesGroups).length > 0) {
+   window.salesGroups = JSON.parse(JSON.stringify(_rcMD.salesGroups));
+  }
+ }
  // 평당매출 탭이 열려있으면 갱신
  if (typeof renderSalesView === 'function' && document.getElementById('salesWrap') &&
  document.getElementById('salesWrap').style.display !== 'none') {
