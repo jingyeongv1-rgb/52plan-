@@ -12693,13 +12693,20 @@ function buildSalesDataModal() {
  modal.id = 'salesDataModal';
  modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;';
  modal.innerHTML = `
- <div style="background:#fff;border-radius:12px;width:520px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);">
+ <div style="background:#fff;border-radius:16px;width:560px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);">
  <div style="background:#1e293b;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
  <div>
  <div style="font-size:14px;font-weight:900;color:#fff;">️ 매출·면적 데이터 입력</div>
  <div style="font-size:10px;color:#64748b;margin-top:2px;">구역별 매출액(만원)과 면적(평)을 직접 입력하세요</div>
  </div>
  <button onclick="closeSalesDataModal()" style="background:rgba(255,255,255,.12);border:none;color:#fff;font-size:16px;width:28px;height:28px;border-radius:6px;cursor:pointer;"></button>
+ </div>
+ <div id="sdmSearchBar" style="display:none;padding:10px 18px 0;flex-shrink:0;">
+   <div style="position:relative;">
+     <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:14px;">🔍</span>
+     <input id="sdmGroupSearch" placeholder="구역명으로 검색..." oninput="sdmFilterGroups()"
+       style="width:100%;font-family:inherit;font-size:12px;padding:8px 12px 8px 34px;border:1.5px solid #e5e7eb;border-radius:8px;outline:none;box-sizing:border-box;"/>
+   </div>
  </div>
  <div id="salesDataBody" style="flex:1;overflow-y:auto;padding:14px 18px;"></div>
  <div style="padding:12px 18px;border-top:1px solid #f1f5f9;display:flex;gap:8px;background:#f8fafc;flex-shrink:0;">
@@ -12721,186 +12728,302 @@ function buildSalesDataModal() {
 }
 
 function openSalesDataModal() {
- if (!isAdmin) { showToast('️ 관리자만 데이터를 입력할 수 있습니다'); return; }
- if (!document.getElementById('salesDataModal')) buildSalesDataModal();
+  if (!isAdmin) { showToast('️ 관리자만 데이터를 입력할 수 있습니다'); return; }
+  if (!document.getElementById('salesDataModal')) buildSalesDataModal();
 
- const body = document.getElementById('salesDataBody');
- if (!body) return;
- body.innerHTML = '';
+  const body = document.getElementById('salesDataBody');
+  if (!body) return;
+  body.innerHTML = '';
 
- const groups = window.salesGroups || {};
- const hasGroups = Object.keys(groups).length > 0;
+  const groups = window.salesGroups || {};
+  const hasGroups = Object.keys(groups).length > 0;
 
- // ── 안내 배너 ──
- const hint = document.createElement('div');
- hint.style.cssText = 'background:#f0f9ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 13px;margin-bottom:14px;font-size:10px;color:#1e40af;line-height:1.7;';
- hint.innerHTML =
- '<b style="font-size:11px;"> 입력 방법</b><br>' +
- '• <b>실매출 + 평수</b> 입력 → 평당매출 자동 계산<br>' +
- '• <b>평당매출 + 평수</b> 입력 → 실매출 자동 역산<br>' +
- (hasGroups
- ? '• 그룹 단위로 입력합니다. 미지정 구역은 별도 입력하세요.'
- : '• 그룹을 먼저 지정하면 구역 단위로 묶어서 입력할 수 있습니다.');
- body.appendChild(hint);
+  // ── 카테고리별 그룹 분류 ──
+  const CAT_ORDER = ['축산','수산','채소','농산','공산','델리','일용','시즌','로컬','기타',''];
+  const CAT_LABEL = {'축산':'축산','수산':'수산','채소':'채소','농산':'농산·과일',
+    '공산':'공산','델리':'델리','일용':'일용','시즌':'시즌','로컬':'로컬','기타':'기타','':'미분류'};
 
- if (hasGroups) {
- // ── 그룹 단위 입력 ──
- renderGroupInputSection(body, groups);
- } else {
- // ── 집기 단위 입력 (그룹 없을 때 fallback) ──
- renderZoneInputSection(body);
- }
+  // 그룹을 카테고리별로 묶기
+  const catMap = {}; // { cat: [{ gid, g }] }
+  if (hasGroups) {
+    Object.entries(groups).forEach(function([gid, g]) {
+      if (!(g.zoneIds||[]).length) return;
+      const cat = g.category || '';
+      if (!catMap[cat]) catMap[cat] = [];
+      catMap[cat].push({gid, g});
+    });
+  }
 
- document.getElementById('salesDataModal').style.display = 'flex';
+  const hasCats = Object.keys(catMap).length > 0;
+
+  if (!hasGroups) {
+    // 그룹 없을 때 안내
+    const hint = document.createElement('div');
+    hint.style.cssText = 'background:#f0f9ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:10px;color:#1e40af;line-height:1.8;';
+    hint.innerHTML = '<b style="font-size:11px;">️ 입력 방법</b><br>• <b>실매출 + 평수</b> 입력 → 평당매출 자동 계산<br>• <b>평당매출 + 평수</b> 입력 → 실매출 자동 역산<br>• 그룹을 먼저 지정하면 카테고리별로 묶어서 입력할 수 있습니다.';
+    body.appendChild(hint);
+    renderZoneInputSection(body);
+    document.getElementById('salesDataModal').style.display = 'flex';
+    return;
+  }
+
+  // ── 카테고리 탭 선택 바 ──
+  const tabBar = document.createElement('div');
+  tabBar.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:0 0 14px 0;border-bottom:2px solid #f1f5f9;margin-bottom:14px;';
+
+  // '전체' 버튼
+  const allBtn = document.createElement('button');
+  var totalGroups = Object.values(catMap).reduce(function(s,a){return s+a.length;},0);
+  allBtn.id = 'sdm_cat_ALL';
+  allBtn.textContent = '전체 ' + totalGroups;
+  allBtn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:2px solid #1e293b;background:#1e293b;color:#fff;cursor:pointer;transition:all .12s;white-space:nowrap;width:88px;box-sizing:border-box;text-align:center;';
+  allBtn.onclick = function() { _sdmSelectCat('ALL'); };
+  tabBar.appendChild(allBtn);
+
+  // 카테고리별 버튼
+  CAT_ORDER.forEach(function(cat) {
+    if (!catMap[cat]) return;
+    const cnt = catMap[cat].length;
+    const btn = document.createElement('button');
+    btn.id = 'sdm_cat_' + (cat || 'ETC');
+    btn.textContent = CAT_LABEL[cat] + ' ' + cnt;
+    btn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:2px solid #e5e7eb;background:#fff;color:#374151;cursor:pointer;transition:all .12s;white-space:nowrap;width:88px;box-sizing:border-box;text-align:center;';
+    btn.onclick = (function(c){ return function(){ _sdmSelectCat(c||'ETC'); }; })(cat);
+    tabBar.appendChild(btn);
+  });
+  body.appendChild(tabBar);
+
+  // ── 그룹 카드 영역 ──
+  const cardsWrap = document.createElement('div');
+  cardsWrap.id = 'sdm_cards_wrap';
+  body.appendChild(cardsWrap);
+
+  // 카테고리별 그룹 카드 렌더
+  CAT_ORDER.forEach(function(cat) {
+    if (!catMap[cat]) return;
+    catMap[cat].forEach(function(entry) {
+      const gid = entry.gid;
+      const g = entry.g;
+      const catKey = cat || 'ETC';
+      const card = _buildGroupCard(gid, g, catKey);
+      card.dataset.cat = catKey;
+      card.dataset.groupname = g.label || gid;
+      cardsWrap.appendChild(card);
+    });
+  });
+
+  // 미지정 구역
+  const allGroupedZids = new Set();
+  Object.values(groups).forEach(function(g){ (g.zoneIds||[]).forEach(function(z){ allGroupedZids.add(z); }); });
+  const nonSales = new Set(['입구','기둥']);
+  const ungrouped = zones.filter(function(z){ return !nonSales.has(z.name) && !String(z.color).startsWith('ent') && z.color !== 'cpillar' && !allGroupedZids.has(z.id); });
+  if (ungrouped.length) {
+    const ugSec = document.createElement('div');
+    ugSec.id = 'sdm_ungrouped';
+    ugSec.dataset.cat = 'UNGROUPED';
+    ugSec.dataset.groupname = '미지정';
+    ugSec.style.cssText = 'margin-top:10px;padding-top:12px;border-top:2px dashed #e5e7eb;';
+    const ugHd = document.createElement('div');
+    ugHd.style.cssText = 'font-size:11px;font-weight:800;color:#6b7280;margin-bottom:10px;';
+    ugHd.textContent = '📋 미지정 구역 (' + ungrouped.length + '개)';
+    ugSec.appendChild(ugHd);
+    const ugBody = document.createElement('div');
+    ugSec.appendChild(ugBody);
+    renderZoneInputSection(ugBody, ungrouped);
+    cardsWrap.appendChild(ugSec);
+
+    // 미지정 구역 탭 버튼
+    const ugBtn = document.createElement('button');
+    ugBtn.id = 'sdm_cat_UNGROUPED';
+    ugBtn.textContent = '미지정 ' + ungrouped.length;
+    ugBtn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:2px solid #e5e7eb;background:#fff;color:#6b7280;cursor:pointer;transition:all .12s;white-space:nowrap;width:88px;box-sizing:border-box;text-align:center;';
+    ugBtn.onclick = function(){ _sdmSelectCat('UNGROUPED'); };
+    tabBar.appendChild(ugBtn);
+  }
+
+  // 초기 선택: 첫 번째 카테고리 or 전체
+  var firstCat = Object.keys(catMap).sort(function(a,b){ return CAT_ORDER.indexOf(a)-CAT_ORDER.indexOf(b); })[0];
+  _sdmSelectCat(firstCat !== undefined ? (firstCat||'ETC') : 'ALL');
+
+  // 검색바 표시 + 초기화
+  var sb = document.getElementById('sdmSearchBar');
+  if (sb) sb.style.display = hasCats ? 'block' : 'none';
+  var si = document.getElementById('sdmGroupSearch');
+  if (si) si.value = '';
+
+  document.getElementById('salesDataModal').style.display = 'flex';
+  // 검색창 포커스
+  setTimeout(function(){ var el=document.getElementById('sdmGroupSearch'); if(el) el.focus(); }, 150);
 }
 
-/* ── 그룹 단위 입력 폼 ── */
+function _sdmSelectCat(catKey) {
+  // 탭 버튼 active 상태
+  document.querySelectorAll('[id^="sdm_cat_"]').forEach(function(btn) {
+    var isActive = btn.id === 'sdm_cat_' + catKey;
+    btn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:2px solid ' + (isActive?'#1e293b':'#e5e7eb') + ';background:' + (isActive?'#1e293b':'#fff') + ';color:' + (isActive?'#fff':'#374151') + ';cursor:pointer;transition:all .12s;white-space:nowrap;width:88px;box-sizing:border-box;text-align:center;';
+  });
+  // 검색 초기화
+  var si = document.getElementById('sdmGroupSearch');
+  if (si) si.value = '';
+  // 카드 표시/숨김
+  const wrap = document.getElementById('sdm_cards_wrap');
+  if (!wrap) return;
+  wrap.querySelectorAll('[data-cat]').forEach(function(el) {
+    el.style.display = (catKey === 'ALL' || el.dataset.cat === catKey) ? '' : 'none';
+  });
+}
+
+// 구역명 검색 필터
+function sdmFilterGroups() {
+  var q = (document.getElementById('sdmGroupSearch')||{value:''}).value.toLowerCase().trim();
+  var wrap = document.getElementById('sdm_cards_wrap');
+  if (!wrap) return;
+  // 탭 active 해제 (검색 중엔 전체 보기로)
+  if (q) {
+    document.querySelectorAll('[id^="sdm_cat_"]').forEach(function(btn) {
+      btn.style.background = '#fff';
+      btn.style.color = '#374151';
+      btn.style.borderColor = '#e5e7eb';
+    });
+    var allBtn = document.getElementById('sdm_cat_ALL');
+    if (allBtn) allBtn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:2px solid #1e293b;background:#1e293b;color:#fff;cursor:pointer;transition:all .12s;white-space:nowrap;width:88px;box-sizing:border-box;text-align:center;';
+  }
+  // 카드 필터
+  wrap.querySelectorAll('[data-cat]').forEach(function(el) {
+    if (!q) { el.style.display = ''; return; }
+    var name = (el.dataset.groupname || '').toLowerCase();
+    el.style.display = name.includes(q) ? '' : 'none';
+  });
+}
+
+function _buildGroupCard(gid, g, catKey) {
+  const card = document.createElement('div');
+  card.style.cssText = 'margin-bottom:14px;border:2px solid '+g.color+';border-radius:10px;overflow:hidden;';
+
+  // 헤더
+  const hd = document.createElement('div');
+  hd.style.cssText = 'display:flex;align-items:center;gap:8px;padding:9px 13px;background:'+g.color+';cursor:pointer;user-select:none;';
+
+  const lbl = document.createElement('div');
+  lbl.style.cssText = 'font-size:13px;font-weight:900;color:#fff;flex:1;';
+  lbl.textContent = g.label;
+
+  const cntEl = document.createElement('div');
+  cntEl.style.cssText = 'font-size:10px;color:rgba(255,255,255,.75);margin-right:6px;';
+  cntEl.textContent = (g.zoneIds||[]).length + '개 집기';
+
+  // 카테고리 선택
+  var CAT_OPTIONS = [
+    { key:'', label:'카테고리 선택' },
+    { key:'축산', label:'축산' }, { key:'수산', label:'수산' },
+    { key:'채소', label:'채소' }, { key:'농산', label:'농산·과일' },
+    { key:'공산', label:'공산' }, { key:'델리', label:'델리' },
+    { key:'일용', label:'일용' }, { key:'시즌', label:'시즌' },
+    { key:'로컬', label:'로컬' }, { key:'기타', label:'기타' },
+  ];
+  var catSel = document.createElement('select');
+  catSel.id = 'gdsi_cat_' + gid;
+  catSel.style.cssText = 'font-family:inherit;font-size:10px;font-weight:800;padding:3px 8px 3px 6px;border-radius:5px;border:1.5px solid rgba(255,255,255,.5);background:rgba(255,255,255,.2);color:#fff;cursor:pointer;outline:none;max-width:90px;';
+  CAT_OPTIONS.forEach(function(opt) {
+    var o = document.createElement('option');
+    o.value = opt.key; o.textContent = opt.label;
+    o.style.color = '#111'; o.style.background = '#fff';
+    if (opt.key === (g.category||'')) o.selected = true;
+    catSel.appendChild(o);
+  });
+  catSel.onclick = function(e){ e.stopPropagation(); };
+  catSel.onchange = function(e) {
+    e.stopPropagation();
+    if (window.salesGroups && window.salesGroups[gid]) {
+      window.salesGroups[gid].category = catSel.value;
+      _safeSaveGroups(currentStore, window.salesGroups);
+      if (typeof syncToFirebase === 'function') syncToFirebase();
+    }
+  };
+
+  // 접기/펼치기 화살표
+  const arrow = document.createElement('span');
+  arrow.style.cssText = 'color:rgba(255,255,255,.8);font-size:12px;transition:transform .2s;display:inline-block;';
+  arrow.textContent = '▲';
+
+  hd.appendChild(lbl);
+  hd.appendChild(cntEl);
+  hd.appendChild(catSel);
+  hd.appendChild(arrow);
+
+  // 카드 바디 (집기 뱃지 + 입력폼)
+  const body = document.createElement('div');
+  body.style.cssText = 'background:#fff;';
+
+  // 집기 뱃지 행
+  const zids = g.zoneIds || [];
+  const zoneNames = zids.map(function(zid){ var z = zones.find(function(z){ return z.id===zid; }); return z ? z.name : null; }).filter(Boolean);
+  if (zoneNames.length) {
+    const zRow = document.createElement('div');
+    zRow.style.cssText = 'padding:6px 13px;background:'+g.color+'11;border-bottom:1px solid '+g.color+'33;display:flex;flex-wrap:wrap;gap:4px;';
+    zoneNames.forEach(function(name) {
+      var b = document.createElement('span');
+      b.style.cssText = 'font-size:9px;padding:1px 6px;border-radius:4px;background:'+g.color+'22;color:'+g.color+';font-weight:700;border:1px solid '+g.color+'44;';
+      b.textContent = name;
+      zRow.appendChild(b);
+    });
+    body.appendChild(zRow);
+  }
+
+  // 입력 그리드
+  const formArea = document.createElement('div');
+  formArea.style.cssText = 'padding:12px 14px;';
+  const savedSales = window.salesGroupData && window.salesGroupData[gid] !== undefined ? window.salesGroupData[gid].sales : '';
+  const savedArea  = window.salesGroupData && window.salesGroupData[gid] !== undefined ? window.salesGroupData[gid].area  : '';
+  const initPS = (savedSales !== '' && Number(savedArea) > 0) ? Math.round(Number(savedSales) / Number(savedArea)) : '';
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;';
+
+  function mkInp(label, id, val, ph, col, bg, step, onInput) {
+    var wrap = document.createElement('div');
+    var lEl = document.createElement('div');
+    lEl.style.cssText = 'font-size:9px;font-weight:700;color:#6b7280;margin-bottom:4px;';
+    lEl.textContent = label;
+    var inp = document.createElement('input');
+    inp.id = id; inp.type = 'number'; inp.min = '0'; inp.step = step||'1';
+    inp.value = val !== undefined ? val : ''; inp.placeholder = ph;
+    inp.style.cssText = 'width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:8px 10px;border:2px solid '+col+'44;border-radius:8px;text-align:right;color:'+(col||'#111827')+';background:'+(bg||'#fff')+';box-sizing:border-box;';
+    inp.onfocus = function(){ inp.style.borderColor=col; inp.style.boxShadow='0 0 0 3px '+col+'22'; };
+    inp.onblur  = function(){ inp.style.borderColor=col+'44'; inp.style.boxShadow=''; };
+    inp.oninput = onInput;
+    wrap.appendChild(lEl); wrap.appendChild(inp);
+    return wrap;
+  }
+
+  grid.appendChild(mkInp('실매출 (만원)', 'gdsi_sales_'+gid, savedSales, '예: 1500', '#374151', '#f9fafb', '10', function(){ updateGroupCalc(gid,'sales'); }));
+  grid.appendChild(mkInp('평수 (평)',     'gdsi_area_'+gid,  savedArea,  '예: 8',    '#374151', '#f9fafb', '0.1', function(){ updateGroupCalc(gid,'area'); }));
+  grid.appendChild(mkInp('평당매출 (만/평)', 'gdsi_ps_'+gid, initPS,     '자동',     '#f97316', '#fff8f0', '0.1', function(){ updateGroupCalc(gid,'ps'); }));
+
+  formArea.appendChild(grid);
+  body.appendChild(formArea);
+
+  // 헤더 클릭으로 접기/펼치기
+  var expanded = true;
+  hd.addEventListener('click', function() {
+    expanded = !expanded;
+    body.style.display = expanded ? '' : 'none';
+    arrow.style.transform = expanded ? '' : 'rotate(180deg)';
+  });
+
+  card.appendChild(hd);
+  card.appendChild(body);
+  return card;
+}
+
+/* ── 그룹 단위 입력 폼 (레거시 — 내부에서 사용 안 함, 하위호환 유지) ── */
 function renderGroupInputSection(body, groups) {
- Object.entries(groups).forEach(function([gid, g]) {
- const zids = (g.zoneIds || []);
- if (!zids.length) return;
-
- // 그룹 카드
- const card = document.createElement('div');
- card.style.cssText =
- 'margin-bottom:16px;border:2px solid '+g.color+';border-radius:10px;overflow:hidden;';
-
- // 카드 헤더
- const hd = document.createElement('div');
- hd.style.cssText =
- 'display:flex;align-items:center;gap:8px;padding:9px 13px;' +
- 'background:'+g.color+';';
- // 카테고리 선택 드롭다운
- var CAT_OPTIONS = [
- { key:'', label:'카테고리 선택' },
- { key:'축산', label:'축산' }, { key:'수산', label:'수산' },
- { key:'채소', label:'채소' }, { key:'농산', label:'농산·과일' },
- { key:'공산', label:'공산' }, { key:'델리', label:'델리' },
- { key:'일용', label:'일용' }, { key:'시즌', label:'시즌' },
- { key:'로컬', label:'로컬' }, { key:'기타', label:'기타' },
- ];
- var savedCat = g.category || '';
- var catSel = document.createElement('select');
- catSel.id = 'gdsi_cat_' + gid;
- catSel.style.cssText =
- 'font-family:inherit;font-size:10px;font-weight:800;padding:3px 8px 3px 6px;' +
- 'border-radius:5px;border:1.5px solid rgba(255,255,255,.5);' +
- 'background:rgba(255,255,255,.2);color:#fff;cursor:pointer;' +
- 'outline:none;max-width:90px;';
- CAT_OPTIONS.forEach(function(opt) {
- var o = document.createElement('option');
- o.value = opt.key; o.textContent = opt.label;
- o.style.color = '#111'; o.style.background = '#fff';
- if (opt.key === savedCat) o.selected = true;
- catSel.appendChild(o);
- });
- if (isViewer) { catSel.disabled = true; catSel.style.opacity = '0.6'; catSel.style.cursor = 'not-allowed'; catSel.title = '열람 모드'; }
- catSel.onchange = function() {
- if (isViewer) { catSel.value = window.salesGroups[gid] && window.salesGroups[gid].category || ''; showToast('️ 열람 모드에서는 수정할 수 없습니다'); return; }
- if (window.salesGroups && window.salesGroups[gid]) {
- window.salesGroups[gid].category = catSel.value;
- if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
- _safeSaveGroups(currentStore, window.salesGroups);
- if (typeof syncToFirebase === 'function') syncToFirebase();
- if (typeof renderSalesView === 'function') renderSalesView();
- }
- };
-
- hd.innerHTML =
- '<div style="font-size:13px;font-weight:900;color:#fff;flex:1;">'+g.label+'</div>' +
- '<div style="font-size:10px;color:rgba(255,255,255,.75);margin-right:6px;">'+zids.length+'개 집기</div>';
- hd.appendChild(catSel);
- card.appendChild(hd);
-
-
- // 집기 목록 (읽기 전용 소형 뱃지)
- const zoneNames = zids.map(zid => {
- const z = zones.find(z => z.id === zid);
- return z ? z.name : zid;
- }).filter(Boolean);
- if (zoneNames.length) {
- const zoneRow = document.createElement('div');
- zoneRow.style.cssText = 'padding:6px 13px;background:'+g.color+'11;border-bottom:1px solid '+g.color+'33;display:flex;flex-wrap:wrap;gap:4px;';
- zoneNames.forEach(name => {
- const badge = document.createElement('span');
- badge.style.cssText = 'font-size:9px;padding:1px 6px;border-radius:4px;background:'+g.color+'22;color:'+g.color+';font-weight:700;border:1px solid '+g.color+'44;';
- badge.textContent = name;
- zoneRow.appendChild(badge);
- });
- card.appendChild(zoneRow);
- }
-
- // 입력 폼
- const formArea = document.createElement('div');
- formArea.style.cssText = 'padding:12px 14px;background:#fff;';
-
- // 기존 저장값 불러오기 (그룹 집계)
- const savedSales = window.salesGroupData && window.salesGroupData[gid] !== undefined
- ? window.salesGroupData[gid].sales : '';
- const savedArea = window.salesGroupData && window.salesGroupData[gid] !== undefined
- ? window.salesGroupData[gid].area : '';
- const _hours = 240;
- const initPS = (savedSales !== '' && Number(savedArea) > 0)
- ? Math.round(Number(savedSales) / Number(savedArea)) : '';
-
- // 3칸 입력 그리드
- const grid = document.createElement('div');
- grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;';
-
- function inputCell(label, id, value, placeholder, color, bgColor, step, onInput) {
- const wrap = document.createElement('div');
- const lEl = document.createElement('div');
- lEl.style.cssText = 'font-size:9px;font-weight:700;color:#6b7280;margin-bottom:4px;';
- lEl.textContent = label;
- const inp = document.createElement('input');
- inp.id = id;
- inp.type = 'number'; inp.min = '0'; inp.step = step || '1';
- inp.value = value !== undefined ? value : '';
- inp.placeholder = placeholder;
- inp.style.cssText =
- 'width:100%;font-family:inherit;font-size:13px;font-weight:800;' +
- 'padding:8px 10px;border:2px solid '+color+'44;border-radius:8px;' +
- 'text-align:right;color:'+(color||'#111827')+';background:'+(bgColor||'#fff')+';' +
- 'box-sizing:border-box;';
- inp.onfocus = () => { inp.style.borderColor = color; inp.style.boxShadow = '0 0 0 3px '+color+'22'; };
- inp.onblur = () => { inp.style.borderColor = color+'44'; inp.style.boxShadow = ''; };
- inp.oninput = onInput;
- wrap.appendChild(lEl);
- wrap.appendChild(inp);
- return wrap;
- }
-
- const salesInp = inputCell('실매출 (만원)', 'gdsi_sales_'+gid, savedSales, '예: 1500', '#374151', '#f9fafb', '10', () => updateGroupCalc(gid, 'sales'));
- const areaInp = inputCell('평수 (평)', 'gdsi_area_'+gid, savedArea, '예: 8', '#374151', '#f9fafb', '0.1', () => updateGroupCalc(gid, 'area'));
- const psInp = inputCell('평당매출 (만/평)', 'gdsi_ps_'+gid, initPS, '자동', '#f97316', '#fff8f0', '0.1', () => updateGroupCalc(gid, 'ps'));
-
- grid.appendChild(salesInp);
- grid.appendChild(areaInp);
- grid.appendChild(psInp);
- formArea.appendChild(grid);
- card.appendChild(formArea);
- body.appendChild(card);
- });
-
- // 미지정 구역 (그룹에 속하지 않은 집기)
- const allGroupedZids = new Set();
- Object.values(groups).forEach(g => (g.zoneIds||[]).forEach(zid => allGroupedZids.add(zid)));
-
- const nonSales = new Set(['입구','기둥']);
- const ungrouped = zones.filter(z =>
- !nonSales.has(z.name) &&
- !String(z.color).startsWith('ent') &&
- z.color !== 'cpillar' &&
- !allGroupedZids.has(z.id)
- );
-
- if (ungrouped.length) {
- const ugHd = document.createElement('div');
- ugHd.style.cssText = 'font-size:11px;font-weight:800;color:#6b7280;margin:16px 0 6px;padding-top:12px;border-top:1px solid #e5e7eb;';
- ugHd.textContent = ' 미지정 구역 (' + ungrouped.length + '개)';
- body.appendChild(ugHd);
- renderZoneInputSection(body, ungrouped);
- }
+  // 신규 방식(_buildGroupCard)으로 대체됨 — openSalesDataModal에서 직접 렌더
+  Object.entries(groups).forEach(function([gid, g]) {
+    if (!(g.zoneIds||[]).length) return;
+    const cat = g.category || '';
+    body.appendChild(_buildGroupCard(gid, g, cat||'ETC'));
+  });
 }
 
 /* ── 3방향 실시간 계산 (그룹용) ── */
@@ -14249,7 +14372,6 @@ function saveProductMasterAndClose() {
 ══════════════════════════════════════════════════════════════════ */
 function openZoneProductsModal() {
   if (!isAdmin) { showToast('관리자만 접근할 수 있습니다'); return; }
-  // 열기 전 salesGroups 스냅샷 저장 (저장 시 복원용)
   if (window.salesGroups && Object.keys(window.salesGroups).length > 0) {
     window._savedSalesGroupsBeforePM = JSON.parse(JSON.stringify(window.salesGroups));
     if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
@@ -14265,8 +14387,7 @@ function openZoneProductsModal() {
   const curMon = window.currentSalesMonth;
   const yr = new Date().getFullYear();
   const monthKey = (curMon !== null && curMon !== undefined)
-    ? (yr + '-' + String(curMon+1).padStart(2,'0'))
-    : 'all';
+    ? (yr + '-' + String(curMon+1).padStart(2,'0')) : 'all';
 
   const monthOptions = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map(function(m,i) {
     var k = yr + '-' + String(i+1).padStart(2,'0');
@@ -14276,11 +14397,12 @@ function openZoneProductsModal() {
   var pmCount = (window.productMaster||[]).length;
 
   modal.innerHTML =
-    '<div style="background:#fff;border-radius:16px;width:720px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);">' +
-      '<div style="background:linear-gradient(135deg,#065f46,#047857);padding:18px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
+    '<div style="background:#fff;border-radius:16px;width:560px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);">' +
+      // 헤더
+      '<div style="background:linear-gradient(135deg,#065f46,#047857);padding:16px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
         '<div>' +
           '<div style="font-size:16px;font-weight:900;color:#fff;">🗂 구역별 상품 배치</div>' +
-          '<div style="font-size:10px;color:#a7f3d0;margin-top:3px;">평당매출 탭의 그룹 구역 단위로 상품을 등록합니다</div>' +
+          '<div style="font-size:10px;color:#a7f3d0;margin-top:2px;">그룹을 선택해 상품을 빠르게 배치하세요</div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;align-items:center;">' +
           '<span style="font-size:10px;color:#a7f3d0;">적용 월:</span>' +
@@ -14290,10 +14412,21 @@ function openZoneProductsModal() {
           '<button onclick="document.getElementById(\'zoneProductsModal\').remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:32px;height:32px;border-radius:8px;cursor:pointer;">✕</button>' +
         '</div>' +
       '</div>' +
-      '<div style="padding:10px 20px;background:#ecfdf5;border-bottom:1px solid #a7f3d0;flex-shrink:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:10px;color:#065f46;">' +
-        '<span>💡 <b>평당매출 탭 → 구역 그룹</b> 버튼으로 그룹을 먼저 만들면 그룹 단위로 상품을 배치할 수 있습니다.</span>' +
-        '<span>상품 DB: <b id="zpProductCount">' + pmCount + '개</b></span>' +
+      // 검색 + 카테고리 필터 바
+      '<div id="zpFilterBar" style="background:#f8fafc;border-bottom:1px solid #e5e7eb;padding:10px 18px;flex-shrink:0;">' +
+        // 검색창
+        '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+          '<div style="flex:1;position:relative;">' +
+            '<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:14px;">🔍</span>' +
+            '<input id="zpGroupSearch" placeholder="구역명으로 검색..." oninput="zpFilterGroups()" ' +
+              'style="width:100%;font-family:inherit;font-size:12px;padding:8px 12px 8px 34px;border:1.5px solid #e5e7eb;border-radius:8px;outline:none;box-sizing:border-box;"/>' +
+          '</div>' +
+          '<span style="font-size:10px;color:#9ca3af;align-self:center;white-space:nowrap;">상품DB: <b style="color:#047857;">' + pmCount + '개</b></span>' +
+        '</div>' +
+        // 카테고리 탭
+        '<div id="zpCatTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div>' +
       '</div>' +
+      // 구역 목록
       '<div id="zpBody" style="flex:1;overflow-y:auto;padding:14px 18px;"></div>' +
       '<div style="padding:12px 20px;border-top:1px solid #f1f5f9;background:#f8fafc;display:flex;gap:8px;flex-shrink:0;">' +
         '<button onclick="saveZoneProductsAndClose()" style="flex:2;font-family:inherit;font-size:13px;font-weight:800;padding:10px;background:#047857;color:#fff;border:none;border-radius:8px;cursor:pointer;">💾 저장</button>' +
@@ -14303,6 +14436,48 @@ function openZoneProductsModal() {
 
   document.body.appendChild(modal);
   renderZoneProductsBody();
+}
+
+// 구역 검색 필터
+function zpFilterGroups() {
+  var q = (document.getElementById('zpGroupSearch')||{value:''}).value.toLowerCase().trim();
+  var body = document.getElementById('zpBody');
+  if (!body) return;
+  body.querySelectorAll('[data-zpgroup]').forEach(function(el) {
+    var name = (el.dataset.zpname||'').toLowerCase();
+    var show = !q || name.includes(q);
+    el.style.display = show ? '' : 'none';
+  });
+  // 섹션 제목도 처리
+  body.querySelectorAll('[data-zpsection]').forEach(function(sec) {
+    var cards = sec.querySelectorAll('[data-zpgroup]');
+    var anyVisible = Array.from(cards).some(function(c){ return c.style.display !== 'none'; });
+    sec.style.display = anyVisible ? '' : 'none';
+  });
+}
+
+// 카테고리 탭 필터
+function zpSelectCat(cat) {
+  // 버튼 active 상태
+  document.querySelectorAll('[id^="zpcat_"]').forEach(function(btn) {
+    var isActive = btn.id === 'zpcat_' + cat;
+    btn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:2px solid ' + (isActive?'#047857':'#e5e7eb') + ';background:' + (isActive?'#047857':'#fff') + ';color:' + (isActive?'#fff':'#374151') + ';cursor:pointer;transition:all .12s;white-space:nowrap;width:88px;box-sizing:border-box;text-align:center;';
+  });
+  // 검색 초기화
+  var searchEl = document.getElementById('zpGroupSearch');
+  if (searchEl) searchEl.value = '';
+
+  var body = document.getElementById('zpBody');
+  if (!body) return;
+  body.querySelectorAll('[data-zpgroup]').forEach(function(el) {
+    el.style.display = (cat === 'ALL' || el.dataset.zpcat === cat) ? '' : 'none';
+  });
+  body.querySelectorAll('[data-zpsection]').forEach(function(sec) {
+    if (cat === 'ALL') { sec.style.display = ''; return; }
+    var cards = sec.querySelectorAll('[data-zpgroup]');
+    var anyVisible = Array.from(cards).some(function(c){ return c.style.display !== 'none'; });
+    sec.style.display = anyVisible ? '' : 'none';
+  });
 }
 
 function renderZoneProductsBody() {
@@ -14315,9 +14490,19 @@ function renderZoneProductsBody() {
   var allZones = typeof zones !== 'undefined' ? zones : [];
   var groupEntries = Object.entries(groups).filter(function(e){ return (e[1].zoneIds||[]).length > 0; });
 
-  // 그룹에 속하지 않은 구역
+  // 카테고리 분류
+  var CAT_ORDER = ['축산','수산','채소','농산','공산','델리','일용','시즌','로컬','기타',''];
+  var CAT_ICON  = {}; // 이모지 제거 — 탭 너비 통일
+  var catMap = {}; // { cat: [{gid,g}] }
+  groupEntries.forEach(function(e) {
+    var cat = e[1].category || '';
+    if (!catMap[cat]) catMap[cat] = [];
+    catMap[cat].push({gid:e[0], g:e[1]});
+  });
+
+  // 미그룹
   var groupedZids = new Set();
-  groupEntries.forEach(function(e){ (e[1].zoneIds||[]).forEach(function(zid){ groupedZids.add(zid); }); });
+  groupEntries.forEach(function(e){ (e[1].zoneIds||[]).forEach(function(z){ groupedZids.add(z); }); });
   var nonSalesNames = new Set(['입구','기둥']);
   var ungrouped = allZones.filter(function(z){
     return !nonSalesNames.has(z.name) && z.color !== 'cpillar' && !String(z.color).startsWith('ent') && !groupedZids.has(z.id);
@@ -14328,105 +14513,152 @@ function renderZoneProductsBody() {
       '<div style="text-align:center;padding:52px 20px;color:#9ca3af;">' +
         '<div style="font-size:42px;margin-bottom:14px;">🗂</div>' +
         '<div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:8px;">그룹 구역이 없습니다</div>' +
-        '<div style="font-size:11px;line-height:1.9;color:#9ca3af;">평당매출 탭 상단의 <b style="color:#6d28d9;">구역 그룹</b> 버튼으로<br>구역 그룹을 먼저 만들어주세요.<br><br>그룹 없이도 하단 <b>미그룹 집기</b>에서 개별 배치 가능합니다.</div>' +
+        '<div style="font-size:11px;line-height:1.9;color:#9ca3af;">평당매출 탭 상단의 <b style="color:#6d28d9;">구역 그룹</b> 버튼으로<br>구역 그룹을 먼저 만들어주세요.</div>' +
       '</div>';
     return;
   }
 
-  var html = '';
+  // ── 카테고리 탭 버튼 빌드 ──
+  var tabsEl = document.getElementById('zpCatTabs');
+  if (tabsEl) {
+    tabsEl.innerHTML = '';
+    // 전체 버튼
+    var allBtn = document.createElement('button');
+    allBtn.id = 'zpcat_ALL';
+    var totalGroups = groupEntries.length;
+    allBtn.textContent = '전체 ' + totalGroups;
+    allBtn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:2px solid #047857;background:#047857;color:#fff;cursor:pointer;transition:all .12s;white-space:nowrap;width:88px;box-sizing:border-box;text-align:center;';
+    allBtn.onclick = function(){ zpSelectCat('ALL'); };
+    tabsEl.appendChild(allBtn);
 
-  // ① 그룹 구역 카드
-  groupEntries.forEach(function(entry) {
-    var gid = entry[0];
-    var g = entry[1];
-    var color = g.color || '#047857';
-    var label = g.label || gid;
-    var zids = g.zoneIds || [];
-    var zoneNames = zids.map(function(zid){ var z = allZones.find(function(z){ return z.id===zid; }); return z ? z.name : null; }).filter(Boolean);
-    var gpKey = 'group_' + gid;
-    var groupProducts = (window.zoneProducts[gpKey] || {})[monthKey] || [];
+    // 카테고리별 탭
+    var hasCats = false;
+    CAT_ORDER.forEach(function(cat) {
+      if (!catMap[cat] || !catMap[cat].length) return;
+      hasCats = true;
+      var btn = document.createElement('button');
+      btn.id = 'zpcat_' + (cat||'ETC');
+      btn.textContent = (cat||'미분류') + ' ' + catMap[cat].length;
+      btn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:2px solid #e5e7eb;background:#fff;color:#374151;cursor:pointer;transition:all .12s;white-space:nowrap;width:88px;box-sizing:border-box;text-align:center;';
+      btn.onclick = (function(c){ return function(){ zpSelectCat(c||'ETC'); }; })(cat);
+      tabsEl.appendChild(btn);
+    });
 
-    var zoneBadges = zoneNames.map(function(n){
-      return '<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;font-weight:700;">' + n + '</span>';
-    }).join('');
+    if (ungrouped.length) {
+      var ugBtn = document.createElement('button');
+      ugBtn.id = 'zpcat_UNGROUPED';
+      ugBtn.textContent = '미그룹 ' + ungrouped.length;
+      ugBtn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:2px solid #e5e7eb;background:#fff;color:#6b7280;cursor:pointer;transition:all .12s;white-space:nowrap;width:88px;box-sizing:border-box;text-align:center;';
+      ugBtn.onclick = function(){ zpSelectCat('UNGROUPED'); };
+      tabsEl.appendChild(ugBtn);
+    }
+  }
 
-    var productTags = groupProducts.length
-      ? groupProducts.map(function(p){
-          var safeP = p.replace(/'/g, "\\'");
-          return '<span style="display:inline-flex;align-items:center;gap:5px;background:' + color + '18;border:2px solid ' + color + ';color:' + color + ';border-radius:20px;padding:5px 13px;font-size:12px;font-weight:700;">' +
-            p +
-            '<button onclick="removeZoneProduct(\'' + gpKey + '\',\'' + safeP + '\',\'' + monthKey + '\')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0;line-height:1;margin-left:2px;">✕</button>' +
-          '</span>';
-        }).join('')
-      : '<span style="font-size:11px;color:#d1d5db;padding:4px 2px;">배치된 상품 없음 — 아래에서 검색하여 추가하세요</span>';
+  // ── 그룹 카드 렌더 ──
+  body.innerHTML = '';
 
-    html +=
-      '<div style="border:2.5px solid ' + color + ';border-radius:14px;margin-bottom:16px;overflow:hidden;">' +
-        // 헤더
-        '<div style="background:' + color + ';padding:12px 16px;display:flex;align-items:center;gap:10px;">' +
-          '<span style="font-size:15px;font-weight:900;color:#fff;flex:1;">' + label + '</span>' +
-          '<span style="font-size:10px;color:rgba(255,255,255,.8);background:rgba(0,0,0,.18);padding:3px 9px;border-radius:10px;">' + zoneNames.length + '개 집기</span>' +
+  // 카테고리별 섹션
+  CAT_ORDER.forEach(function(cat) {
+    if (!catMap[cat] || !catMap[cat].length) return;
+    var catKey = cat || 'ETC';
+    var sec = document.createElement('div');
+    sec.dataset.zpsection = catKey;
+
+    catMap[cat].forEach(function(entry) {
+      var gid = entry.gid;
+      var g = entry.g;
+      var color = g.color || '#047857';
+      var label = g.label || gid;
+      var zids = g.zoneIds || [];
+      var zoneNames = zids.map(function(zid){ var z = allZones.find(function(z){ return z.id===zid; }); return z ? z.name : null; }).filter(Boolean);
+      var gpKey = 'group_' + gid;
+      var groupProducts = (window.zoneProducts[gpKey] || {})[monthKey] || [];
+
+      var card = document.createElement('div');
+      card.dataset.zpgroup = gpKey;
+      card.dataset.zpcat = catKey;
+      card.dataset.zpname = label;
+      card.style.cssText = 'border:2.5px solid ' + color + ';border-radius:12px;margin-bottom:14px;overflow:hidden;';
+
+      // 헤더
+      var zoneBadges = zoneNames.map(function(n){
+        return '<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;font-weight:700;">' + n + '</span>';
+      }).join(' ');
+
+      var productTags = groupProducts.length
+        ? groupProducts.map(function(p){
+            var safeP = p.replace(/'/g,"\\'");
+            return '<span style="display:inline-flex;align-items:center;gap:5px;background:' + color + '18;border:2px solid ' + color + ';color:' + color + ';border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;">' +
+              p + '<button onclick="removeZoneProduct(\'' + gpKey + '\',\'' + safeP + '\',\'' + monthKey + '\')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0;line-height:1;">✕</button></span>';
+          }).join('')
+        : '<span style="font-size:11px;color:#d1d5db;padding:4px 2px;">배치된 상품 없음</span>';
+
+      card.innerHTML =
+        '<div style="background:' + color + ';padding:10px 16px;display:flex;align-items:center;gap:10px;">' +
+          '<span style="font-size:14px;font-weight:900;color:#fff;flex:1;">' + label + '</span>' +
+          '<span style="font-size:9px;color:rgba(255,255,255,.8);background:rgba(0,0,0,.18);padding:2px 8px;border-radius:10px;">' + zoneNames.length + '개 집기</span>' +
           '<span style="font-size:10px;color:rgba(255,255,255,.75);">' + groupProducts.length + '개 상품</span>' +
         '</div>' +
         // 집기 뱃지
-        '<div style="padding:7px 14px;background:' + color + '12;border-bottom:1px solid ' + color + '30;display:flex;flex-wrap:wrap;gap:4px;">' +
-          zoneBadges +
-        '</div>' +
+        '<div style="padding:6px 14px;background:' + color + '10;border-bottom:1px solid ' + color + '28;display:flex;flex-wrap:wrap;gap:4px;min-height:28px;">' + zoneBadges + '</div>' +
         // 상품 태그
-        '<div id="zpTags_' + gpKey + '" style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px;min-height:46px;background:#fff;">' +
-          productTags +
-        '</div>' +
-        // 검색창
+        '<div id="zpTags_' + gpKey + '" style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px;min-height:44px;background:#fff;">' + productTags + '</div>' +
+        // 검색
         '<div style="padding:8px 14px 12px;background:#fafafa;border-top:1px solid #f1f5f9;">' +
           '<input id="zpSearch_' + gpKey + '" placeholder="🔍 상품 검색하여 추가..." ' +
             'oninput="showZpDropdown(\'' + gpKey + '\',\'' + monthKey + '\')" ' +
             'onkeydown="if(event.key===\'Enter\')zpSelectFirst(\'' + gpKey + '\',\'' + monthKey + '\')" ' +
-            'style="width:100%;font-family:inherit;font-size:12px;padding:8px 13px;border:2px solid ' + color + '66;border-radius:8px;outline:none;box-sizing:border-box;" ' +
-            'autocomplete="off"/>' +
-          '<div id="zpDrop_' + gpKey + '" style="display:none;background:#fff;border:2px solid ' + color + ';border-radius:8px;margin-top:5px;max-height:160px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.12);"></div>' +
-        '</div>' +
-      '</div>';
+            'style="width:100%;font-family:inherit;font-size:12px;padding:7px 13px;border:2px solid ' + color + '66;border-radius:8px;outline:none;box-sizing:border-box;" autocomplete="off"/>' +
+          '<div id="zpDrop_' + gpKey + '" style="display:none;background:#fff;border:2px solid ' + color + ';border-radius:8px;margin-top:5px;max-height:150px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.12);"></div>' +
+        '</div>';
+
+      sec.appendChild(card);
+    });
+    body.appendChild(sec);
   });
 
-  // ② 미그룹 집기
+  // 미그룹 집기
   if (ungrouped.length) {
-    html += '<div style="margin-top:4px;padding-top:14px;border-top:2px dashed #e5e7eb;">';
-    html += '<div style="font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.5px;margin-bottom:10px;">📋 미그룹 집기 (' + ungrouped.length + '개) — 그룹 미지정 구역</div>';
+    var ugSec = document.createElement('div');
+    ugSec.dataset.zpsection = 'UNGROUPED';
+    ugSec.style.cssText = 'padding-top:12px;border-top:2px dashed #e5e7eb;margin-top:4px;';
+    var ugHd = document.createElement('div');
+    ugHd.style.cssText = 'font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.5px;margin-bottom:10px;';
+    ugHd.textContent = '📋 미그룹 집기 (' + ungrouped.length + '개)';
+    ugSec.appendChild(ugHd);
+
     ungrouped.forEach(function(z) {
       var products = (window.zoneProducts[z.id] || {})[monthKey] || [];
       var productTags2 = products.length
         ? products.map(function(p){
             var safeP = p.replace(/'/g,"\\'");
             return '<span style="display:inline-flex;align-items:center;gap:4px;background:#f3f4f6;border:1.5px solid #9ca3af;color:#374151;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;">' +
-              p +
-              '<button onclick="removeZoneProduct(\'' + z.id + '\',\'' + safeP + '\',\'' + monthKey + '\')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;padding:0;line-height:1;">✕</button>' +
-            '</span>';
+              p + '<button onclick="removeZoneProduct(\'' + z.id + '\',\'' + safeP + '\',\'' + monthKey + '\')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;padding:0;line-height:1;">✕</button></span>';
           }).join('')
         : '<span style="font-size:10px;color:#d1d5db;padding:4px;">배치된 상품 없음</span>';
 
-      html +=
-        '<div style="border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:8px;overflow:hidden;">' +
-          '<div style="background:#f8fafc;padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f1f5f9;">' +
-            '<span style="font-size:12px;font-weight:800;color:#374151;flex:1;">' + z.name + '</span>' +
-            '<span style="font-size:9px;color:#9ca3af;">' + products.length + '개 상품</span>' +
-          '</div>' +
-          '<div id="zpTags_' + z.id + '" style="padding:8px 12px;display:flex;flex-wrap:wrap;gap:5px;min-height:36px;background:#fff;">' +
-            productTags2 +
-          '</div>' +
-          '<div style="padding:6px 12px 10px;background:#fafafa;border-top:1px solid #f1f5f9;">' +
-            '<input id="zpSearch_' + z.id + '" placeholder="🔍 상품 검색하여 추가..." ' +
-              'oninput="showZpDropdown(\'' + z.id + '\',\'' + monthKey + '\')" ' +
-              'onkeydown="if(event.key===\'Enter\')zpSelectFirst(\'' + z.id + '\',\'' + monthKey + '\')" ' +
-              'style="width:100%;font-family:inherit;font-size:11px;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:6px;outline:none;box-sizing:border-box;" ' +
-              'autocomplete="off"/>' +
-            '<div id="zpDrop_' + z.id + '" style="display:none;background:#fff;border:1.5px solid #9ca3af;border-radius:8px;margin-top:4px;max-height:130px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1);"></div>' +
-          '</div>' +
+      var ugCard = document.createElement('div');
+      ugCard.dataset.zpgroup = z.id;
+      ugCard.dataset.zpcat = 'UNGROUPED';
+      ugCard.dataset.zpname = z.name;
+      ugCard.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:8px;overflow:hidden;';
+      ugCard.innerHTML =
+        '<div style="background:#f8fafc;padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f1f5f9;">' +
+          '<span style="font-size:12px;font-weight:800;color:#374151;flex:1;">' + z.name + '</span>' +
+          '<span style="font-size:9px;color:#9ca3af;">' + products.length + '개 상품</span>' +
+        '</div>' +
+        '<div id="zpTags_' + z.id + '" style="padding:8px 12px;display:flex;flex-wrap:wrap;gap:5px;min-height:36px;background:#fff;">' + productTags2 + '</div>' +
+        '<div style="padding:6px 12px 10px;background:#fafafa;border-top:1px solid #f1f5f9;">' +
+          '<input id="zpSearch_' + z.id + '" placeholder="🔍 상품 검색하여 추가..." ' +
+            'oninput="showZpDropdown(\'' + z.id + '\',\'' + monthKey + '\')" ' +
+            'onkeydown="if(event.key===\'Enter\')zpSelectFirst(\'' + z.id + '\',\'' + monthKey + '\')" ' +
+            'style="width:100%;font-family:inherit;font-size:11px;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:6px;outline:none;box-sizing:border-box;" autocomplete="off"/>' +
+          '<div id="zpDrop_' + z.id + '" style="display:none;background:#fff;border:1.5px solid #9ca3af;border-radius:8px;margin-top:4px;max-height:130px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1);"></div>' +
         '</div>';
+      ugSec.appendChild(ugCard);
     });
-    html += '</div>';
+    body.appendChild(ugSec);
   }
-
-  body.innerHTML = html;
 }
 
 function showZpDropdown(zpKey, monthKey) {
