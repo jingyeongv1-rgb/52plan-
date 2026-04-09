@@ -1256,6 +1256,11 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
    if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
    window.storeSalesGroupsMap[store] = JSON.parse(JSON.stringify(_curMD.salesGroups));
   }
+  // 평당매출탭이 현재 열려 있으면 도면 재렌더 (다른 기기 변경사항 반영)
+  var _salWrap = document.getElementById('salesWrap');
+  if (_salWrap && _salWrap.style.display !== 'none' && typeof renderSalesView === 'function') {
+   setTimeout(renderSalesView, 100);
+  }
  }
 
  // 서버 스냅샷 저장 (diff 계산용)
@@ -9693,7 +9698,8 @@ function switchSalesMonth(monthIdx) {
  // 도면이 이미 렌더된 경우: 위치 유지하며 색상·패널만 갱신
  const gcSales = document.getElementById('gc-sales');
  const tblCol = document.querySelector('#salesWrap [data-sales-panel]');
- // 월이 바뀌면 도면도 다시 그려야 함 (월별 집기 위치/구성이 다를 수 있음)
+ // 월 전환 시 도면을 새로 그림 (월별 집기 위치가 다를 수 있음)
+ // salesGroups는 switchSalesMonth 위에서 이미 올바르게 세팅됐으므로 보존
  renderSalesView();
  // 상단 월별 탭 활성 상태 갱신
  renderSalesMonthNav();
