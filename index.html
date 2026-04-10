@@ -1434,9 +1434,25 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
  : { name: store, zones: [], userOverrides: {}, seasonOverrides: {},
  catRegions: [], canvasRotation: 0, textRotation: 0, catTagPos: 'tl',
  savedAt: Date.now() };
- _myLastSavedAt[store] = payload.savedAt;
- console.log('[FIREBASE SET]', store, '| canvasRotation:', payload.canvasRotation);
- await set(ref(db, 'plan2026/' + store), payload);
+ // Firebase 전송 전 JSON 정제 (undefined 제거) + productSalesData 키 재sanitize
+ function _deepSanitize(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  var r = {};
+  Object.keys(obj).forEach(function(k) {
+   var sk = k.replace(/[.#$\/\[\]]/g, '_');
+   var v = obj[k];
+   if (v === undefined) return;
+   r[sk] = (v && typeof v === 'object') ? _deepSanitize(v) : v;
+  });
+  return r;
+ }
+ const safePayload = JSON.parse(JSON.stringify(payload, function(k, v) {
+  return v === undefined ? null : v;
+ }));
+ safePayload.productSalesData = _deepSanitize(safePayload.productSalesData || {});
+ _myLastSavedAt[store] = safePayload.savedAt;
+ console.log('[FIREBASE SET]', store, '| canvasRotation:', safePayload.canvasRotation);
+ await set(ref(db, 'plan2026/' + store), safePayload);
  console.log('[FIREBASE SET 완료]', store);
  syncUI('saved', '저장됨 ');
  } catch(e) {
