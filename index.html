@@ -12805,13 +12805,42 @@ function deleteSalesGroup(gid) {
  const g = window.salesGroups[gid];
  if (!g) return;
  if (!confirm('"' + g.label + '" 그룹을 삭제할까요?')) return;
+
+ // ① 그룹 구조 삭제
  delete window.salesGroups[gid];
  if (salesGroupActiveId === gid) salesGroupActiveId = null;
+
+ // ② 그룹에 속한 구역들의 salesData/areaData도 삭제
+ var _delZids = (g.zoneIds || []);
+ _delZids.forEach(function(zid) {
+   if (window.salesData) delete window.salesData[zid];
+   if (window.areaData) delete window.areaData[zid];
+ });
+
+ // ③ salesGroupData에서도 삭제
+ if (window.salesGroupData) delete window.salesGroupData[gid];
+ if (window.storeSalesGroupDataMap && window.storeSalesGroupDataMap[currentStore]) {
+   delete window.storeSalesGroupDataMap[currentStore][gid];
+ }
+
+ // ④ monthlySalesStore 전체 월에서도 동일하게 삭제
+ if (window.monthlySalesStore && window.monthlySalesStore[currentStore]) {
+   Object.values(window.monthlySalesStore[currentStore]).forEach(function(md) {
+     if (md.salesGroups) delete md.salesGroups[gid];
+     if (md.salesGroupData) delete md.salesGroupData[gid];
+     _delZids.forEach(function(zid) {
+       if (md.salesData) delete md.salesData[zid];
+       if (md.areaData) delete md.areaData[zid];
+     });
+   });
+ }
+
  const _gcS2 = document.getElementById('gc-sales');
  const _tbl2 = document.querySelector('#salesWrap [data-sales-panel]');
  if (_gcS2 && _tbl2) { refreshSalesContent(_gcS2, _tbl2); } else { renderSalesView(); }
  if (typeof window._refreshGroupSidePanel === 'function') window._refreshGroupSidePanel();
  showToast('그룹 삭제됨');
+
  // storeSalesGroupsMap 백업 + Firebase 동기화
  if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
  _safeSaveGroups(currentStore, window.salesGroups);
@@ -13397,9 +13426,49 @@ function _buildGroupCard(gid, g, catKey) {
   arrow.style.cssText = 'color:rgba(255,255,255,.8);font-size:12px;transition:transform .2s;display:inline-block;';
   arrow.textContent = '▲';
 
+  // 그룹 삭제 버튼
+  const delGrpBtn = document.createElement('button');
+  delGrpBtn.textContent = '🗑';
+  delGrpBtn.title = '이 그룹 삭제';
+  delGrpBtn.style.cssText = 'background:rgba(0,0,0,.25);border:none;border-radius:4px;color:#fff;font-size:12px;padding:2px 6px;cursor:pointer;flex-shrink:0;';
+  delGrpBtn.onclick = function(e) {
+    e.stopPropagation();
+    if (!confirm('"' + g.label + '" 그룹과 관련 매출 데이터를 모두 삭제할까요?')) return;
+    // 그룹 구조 삭제
+    delete window.salesGroups[gid];
+    // 구역 salesData/areaData 삭제
+    (g.zoneIds || []).forEach(function(zid) {
+      if (window.salesData) delete window.salesData[zid];
+      if (window.areaData) delete window.areaData[zid];
+    });
+    // salesGroupData 삭제
+    if (window.salesGroupData) delete window.salesGroupData[gid];
+    if (window.storeSalesGroupDataMap && window.storeSalesGroupDataMap[currentStore]) {
+      delete window.storeSalesGroupDataMap[currentStore][gid];
+    }
+    // monthlySalesStore 전체 월에서 삭제
+    if (window.monthlySalesStore && window.monthlySalesStore[currentStore]) {
+      Object.values(window.monthlySalesStore[currentStore]).forEach(function(md) {
+        if (md.salesGroups) delete md.salesGroups[gid];
+        if (md.salesGroupData) delete md.salesGroupData[gid];
+        (g.zoneIds || []).forEach(function(zid) {
+          if (md.salesData) delete md.salesData[zid];
+          if (md.areaData) delete md.areaData[zid];
+        });
+      });
+    }
+    _safeSaveGroups(currentStore, window.salesGroups);
+    if (typeof syncToFirebase === 'function') syncToFirebase();
+    showToast('"' + g.label + '" 삭제 완료');
+    // 모달 새로고침
+    var modal = document.getElementById('salesDataModal');
+    if (modal) { modal.remove(); openSalesDataModal(); }
+  };
+
   hd.appendChild(lbl);
   hd.appendChild(cntEl);
   hd.appendChild(catSel);
+  hd.appendChild(delGrpBtn);
   hd.appendChild(arrow);
 
   // 카드 바디 (집기 뱃지 + 입력폼)
@@ -14059,6 +14128,20 @@ function applySalesData() {
  if (!window.storeAreaDataMap) window.storeAreaDataMap = {};
  window.storeSalesDataMap[currentStore] = JSON.parse(JSON.stringify(window.salesData || {}));
  window.storeAreaDataMap[currentStore] = JSON.parse(JSON.stringify(window.areaData || {}));
+
+ // monthlySalesStore에도 즉시 반영 (매출 업로드 데이터 덮어씌움 방지)
+ var _curMo = window.currentSalesMonth;
+ if (_curMo !== null && _curMo !== undefined) {
+   if (!window.monthlySalesStore) window.monthlySalesStore = {};
+   if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
+   var _moKey = _salesMonthKey(_curMo);
+   window.monthlySalesStore[currentStore][_moKey] = {
+     salesData: JSON.parse(JSON.stringify(window.salesData || {})),
+     areaData: JSON.parse(JSON.stringify(window.areaData || {})),
+     salesGroups: JSON.parse(JSON.stringify(_getActiveGroups(currentStore))),
+     salesGroupData: JSON.parse(JSON.stringify(window.salesGroupData || {}))
+   };
+ }
 
  closeSalesDataModal();
  showToast(' 데이터 저장 완료 — Firebase 동기화 중...');
@@ -15446,7 +15529,8 @@ function applyProductSalesData() {
     var salesInMan = isWon ? r.sales / 10000 : r.sales;
     // Firebase 키 금지문자 제거 (. # $ / [ ] ( ) * 공백 → _)
     var safeKey = r.productName.replace(/[.#$\/\[\]()*\s]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || '_';
-    window.productSalesData[monthVal][safeKey] = Math.round(salesInMan / operatingDays);
+    // 월매출(만원) 그대로 저장 (소수점 손실 방지)
+    window.productSalesData[monthVal][safeKey] = Math.round(salesInMan * 100) / 100;
   });
   // 영업일수도 저장 (표시용)
   window.productSalesData[monthVal].__operatingDays = operatingDays;
@@ -15567,12 +15651,14 @@ function recalcProductSalesColors(monthKey) {
     var products = zpGroup[monthKey] || zpGroup['all'] || [];
     if (!products.length) return;
 
-    var totalSales = 0;
+    var totalSalesMon = 0;
     var mappedCount = 0;
     products.forEach(function(p) {
-      if (psdAll[p] !== undefined) { totalSales += psdAll[p]; mappedCount++; }
+      if (psdAll[p] !== undefined) { totalSalesMon += psdAll[p]; mappedCount++; }
     });
     if (mappedCount === 0) return;
+    // 월매출 → 하루매출(만원) 변환
+    var totalSales = Math.round(totalSalesMon);
 
     var zids = g.zoneIds || [];
     var totalArea = 0;
@@ -15605,11 +15691,13 @@ function recalcProductSalesColors(monthKey) {
     var zpZone = zp[z.id] || {};
     var products = zpZone[monthKey] || zpZone['all'] || [];
     if (!products.length) return;
-    var totalSales = 0, mappedCount = 0;
+    var totalSalesMon2 = 0, mappedCount = 0;
     products.forEach(function(p) {
-      if (psdAll[p] !== undefined) { totalSales += psdAll[p]; mappedCount++; }
+      if (psdAll[p] !== undefined) { totalSalesMon2 += psdAll[p]; mappedCount++; }
     });
     if (mappedCount === 0) return;
+    // 월매출 → 하루매출(만원) 변환
+    var totalSales = Math.round(totalSalesMon2);
     var area = baseAreaData[z.id] || Math.max(1, z.cellCount || 1);
     baseSalesData[z.id] = totalSales;
     baseAreaData[z.id] = area;
