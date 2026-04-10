@@ -1229,7 +1229,17 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
  window.salesLabelOffsets= JSON.parse(JSON.stringify(data.labelOffsets || {}));
     window.productMaster = JSON.parse(JSON.stringify(data.productMaster || []));
     window.zoneProducts = JSON.parse(JSON.stringify(data.zoneProducts || {}));
-    window.productSalesData = JSON.parse(JSON.stringify(data.productSalesData || {}));
+    window.productSalesData = (function() {
+      function _sk(obj) {
+        if (!obj || typeof obj !== 'object') return obj;
+        var r = {};
+        Object.keys(obj).forEach(function(k) {
+          r[k.replace(/[.#$\/\[\]]/g, '_')] = (obj[k] && typeof obj[k]==='object') ? _sk(obj[k]) : obj[k];
+        });
+        return r;
+      }
+      return _sk(JSON.parse(JSON.stringify(data.productSalesData || {})));
+    })();
     // storeSalesGroupsMap도 동시 갱신 (폴백 소스)
     if (data.salesGroups && Object.keys(data.salesGroups).length > 0) {
       if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
@@ -1366,7 +1376,17 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
  window.salesLabelOffsets= JSON.parse(JSON.stringify(data.labelOffsets || {}));
     window.productMaster = JSON.parse(JSON.stringify(data.productMaster || []));
     window.zoneProducts = JSON.parse(JSON.stringify(data.zoneProducts || {}));
-    window.productSalesData = JSON.parse(JSON.stringify(data.productSalesData || {}));
+    window.productSalesData = (function() {
+      function _sk(obj) {
+        if (!obj || typeof obj !== 'object') return obj;
+        var r = {};
+        Object.keys(obj).forEach(function(k) {
+          r[k.replace(/[.#$\/\[\]]/g, '_')] = (obj[k] && typeof obj[k]==='object') ? _sk(obj[k]) : obj[k];
+        });
+        return r;
+      }
+      return _sk(JSON.parse(JSON.stringify(data.productSalesData || {})));
+    })();
  // currentSalesMonth 기준 월별 데이터 즉시 적용
  if (window.currentSalesMonth !== null && window.currentSalesMonth !== undefined && data.monthlySales) {
   var _rcMKey = 'm' + window.currentSalesMonth;
@@ -15352,9 +15372,10 @@ function applyProductSalesData() {
   if (!window.productSalesData) window.productSalesData = {};
   if (!window.productSalesData[monthVal]) window.productSalesData[monthVal] = {};
   rows.forEach(function(r) {
-    var salesInMan = isWon ? r.sales / 10000 : r.sales; // 원이면 만원으로 변환
-    // 월 매출(만원) → 하루 매출(만원)
-    window.productSalesData[monthVal][r.productName] = Math.round(salesInMan / operatingDays);
+    var salesInMan = isWon ? r.sales / 10000 : r.sales;
+    // Firebase 키 금지문자 제거 (. # $ / [ ] → _)
+    var safeKey = r.productName.replace(/[.#$\/\[\]]/g, '_');
+    window.productSalesData[monthVal][safeKey] = Math.round(salesInMan / operatingDays);
   });
   // 영업일수도 저장 (표시용)
   window.productSalesData[monthVal].__operatingDays = operatingDays;
