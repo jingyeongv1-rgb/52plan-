@@ -9681,16 +9681,21 @@ function getSalesMonthData(monthIdx) {
  }
  if (!window.monthlySalesStore) window.monthlySalesStore = {};
  if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
- const md = window.monthlySalesStore[currentStore][_salesMonthKey(monthIdx)] || {};
- // salesGroups: 해당 월에 없으면 전역 storeSalesGroupsMap → window.salesGroups 순으로 폴백
- const fallbackGroups =
-   (window.storeSalesGroupsMap && window.storeSalesGroupsMap[currentStore] && Object.keys(window.storeSalesGroupsMap[currentStore]).length > 0)
+ const _mKey = _salesMonthKey(monthIdx);
+ const _mStore = window.monthlySalesStore[currentStore];
+ const md = _mStore[_mKey] || {};
+ // salesGroups: 해당 월에 키가 명시적으로 존재하면(빈 {}이라도) 그대로 사용 — 삭제 의도 존중
+ // 해당 월 데이터 자체가 없을 때만 전역 폴백
+ const monthHasSalesGroupsKey = _mStore[_mKey] && Object.prototype.hasOwnProperty.call(_mStore[_mKey], 'salesGroups');
+ const resolvedGroups = monthHasSalesGroupsKey
+   ? md.salesGroups
+   : ((window.storeSalesGroupsMap && window.storeSalesGroupsMap[currentStore] && Object.keys(window.storeSalesGroupsMap[currentStore]).length > 0)
      ? window.storeSalesGroupsMap[currentStore]
-     : (window.salesGroups && Object.keys(window.salesGroups).length > 0 ? window.salesGroups : {});
+     : (window.salesGroups && Object.keys(window.salesGroups).length > 0 ? window.salesGroups : {}));
  return {
  salesData: md.salesData || {},
  areaData: md.areaData || {},
- salesGroups: (md.salesGroups && Object.keys(md.salesGroups).length > 0) ? md.salesGroups : JSON.parse(JSON.stringify(fallbackGroups)),
+ salesGroups: JSON.parse(JSON.stringify(resolvedGroups || {})),
  salesGroupData: md.salesGroupData || {}
  };
 }
@@ -11747,6 +11752,18 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  addBtn.onmouseout = function(){ addBtn.style.borderColor='#334155'; addBtn.style.color='#475569'; };
  addBtn.onclick = function(){ if(typeof addSalesGroup==='function') addSalesGroup(); };
  addWrap.appendChild(addBtn);
+
+ // 현재 월 그룹 전체 삭제 버튼
+ const delAllBtn = document.createElement('button');
+ delAllBtn.style.cssText = 'width:100%;font-family:inherit;font-size:9px;font-weight:700;padding:5px;border-radius:5px;border:1.5px solid #334155;background:transparent;color:#ef4444;cursor:pointer;margin-top:4px;';
+ var _monLbl = (typeof MONTHS!=='undefined' && MONTHS[window.currentSalesMonth]) ? MONTHS[window.currentSalesMonth].label : '이달';
+ delAllBtn.textContent = '🗑 '+_monLbl+' 그룹 전체 삭제';
+ delAllBtn.title = '현재 보고 있는 월의 그룹 구역만 삭제합니다. 다른 월은 영향받지 않습니다.';
+ delAllBtn.onmouseover = function(){ delAllBtn.style.borderColor='#ef4444'; delAllBtn.style.background='rgba(239,68,68,.08)'; };
+ delAllBtn.onmouseout = function(){ delAllBtn.style.borderColor='#334155'; delAllBtn.style.background='transparent'; };
+ delAllBtn.onclick = function(){ if(typeof clearAllSalesGroups==='function') clearAllSalesGroups(); };
+ addWrap.appendChild(delAllBtn);
+
  groupCol.appendChild(addWrap);
  }
 
@@ -12957,6 +12974,56 @@ function deleteSalesGroup(gid) {
  showToast('그룹 삭제됨');
  _safeSaveGroups(currentStore, window.salesGroups);
  if (typeof syncToFirebase === 'function') syncToFirebase();
+}
+
+// ── 현재 월의 그룹 구역 전체 삭제 ──
+function clearAllSalesGroups() {
+  var curMon = window.currentSalesMonth;
+  if (curMon === null || curMon === undefined) {
+    showToast('종합 탭에서는 삭제할 수 없습니다. 월을 선택해주세요.');
+    return;
+  }
+  var monLabel = (typeof MONTHS !== 'undefined' && MONTHS[curMon]) ? MONTHS[curMon].label : (curMon+1)+'월';
+  var groups = window.salesGroups || {};
+  var count = Object.keys(groups).length;
+  if (count === 0) { showToast(monLabel+' 그룹 구역이 없습니다'); return; }
+  if (!confirm(monLabel+' 그룹 구역 '+count+'개를 모두 삭제할까요?\n다른 월의 그룹은 영향받지 않습니다.')) return;
+
+  // ① 현재 window.salesGroups / salesData / areaData / salesGroupData 초기화
+  window.salesGroups = {};
+  window.salesGroupData = {};
+  salesGroupActiveId = null;
+  // 구역별 salesData/areaData에서 그룹 zoneId 제거
+  Object.keys(groups).forEach(function(gid) {
+    var g = groups[gid];
+    var zids = (g && g.zoneIds) || [];
+    zids.forEach(function(zid) {
+      if (window.salesData) delete window.salesData[zid];
+      if (window.areaData) delete window.areaData[zid];
+    });
+  });
+
+  // ② monthlySalesStore 해당 월에만 빈 salesGroups 명시적 저장 (hasOwnProperty 체크가 이를 인식)
+  if (!window.monthlySalesStore) window.monthlySalesStore = {};
+  if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
+  var mKey = _salesMonthKey(curMon);
+  var existing = window.monthlySalesStore[currentStore][mKey] || {};
+  window.monthlySalesStore[currentStore][mKey] = {
+    salesData: JSON.parse(JSON.stringify(window.salesData || {})),
+    areaData: JSON.parse(JSON.stringify(window.areaData || {})),
+    salesGroups: {},       // 빈 객체를 명시적으로 저장 → 폴백 차단
+    salesGroupData: {}
+  };
+
+  // ③ Firebase 저장 (_firebaseSave 직접 호출 — _safeSaveGroups 우회)
+  if (typeof window._firebaseSave === 'function') { window._firebaseSave(currentStore); }
+
+  // ④ 화면 갱신
+  var _gcS = document.getElementById('gc-sales');
+  var _tbl = document.querySelector('#salesWrap [data-sales-panel]');
+  if (_gcS && _tbl) { refreshSalesContent(_gcS, _tbl); } else if (typeof renderSalesView === 'function') { renderSalesView(); }
+  if (typeof window._refreshGroupSidePanel === 'function') window._refreshGroupSidePanel();
+  showToast('✅ '+monLabel+' 그룹 구역 전체 삭제 완료');
 }
 
 // 그룹 데이터 완전 삭제 헬퍼 (모달 삭제 버튼과 공유)
