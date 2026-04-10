@@ -11700,6 +11700,16 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  row.onmouseout = function(){ if(!isActive) row.style.background='#1e293b'; };
  var dot = document.createElement('div');
  dot.style.cssText = 'width:9px;height:9px;border-radius:2px;background:'+g.color+';flex-shrink:0;';
+ // 넘버 뱃지
+ if (g.number) {
+   var numBadge = document.createElement('span');
+   numBadge.style.cssText = 'font-size:8px;font-weight:900;padding:1px 5px;border-radius:3px;background:'+g.color+';color:#fff;flex-shrink:0;';
+   numBadge.textContent = g.number;
+   row.appendChild(dot);
+   row.appendChild(numBadge);
+ } else {
+   row.appendChild(dot);
+ }
  var lbl = document.createElement('span');
  lbl.style.cssText = 'flex:1;font-size:10px;font-weight:700;color:'+(isActive?'#c7d2fe':'#64748b')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;';
  lbl.textContent = g.label;
@@ -11708,6 +11718,20 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  cntEl.textContent = (g.zoneIds||[]).length+'개';
  var actRow = document.createElement('div');
  actRow.style.cssText = 'display:flex;gap:3px;flex-shrink:0;';
+ // 넘버 수정 버튼
+ var numBtn = document.createElement('button');
+ numBtn.style.cssText = 'font-size:8px;padding:1px 4px;border-radius:3px;border:1px solid #334155;background:transparent;color:#94a3b8;cursor:pointer;font-family:inherit;';
+ numBtn.textContent = '#';
+ numBtn.title = '넘버 수정';
+ numBtn.onclick = (function(id, grp){ return function(e){
+   e.stopPropagation();
+   var newNum = prompt('넘버를 입력하세요 (예: 1, 1-1, 2 등)\n비워두면 표시 안 됨', grp.number || '');
+   if (newNum === null) return;
+   grp.number = newNum;
+   _safeSaveGroups(currentStore, window.salesGroups);
+   if (typeof syncToFirebase === 'function') syncToFirebase();
+   if (typeof window._refreshGroupSidePanel === 'function') window._refreshGroupSidePanel();
+ }; })(gid, g);
  var selBtn = document.createElement('button');
  selBtn.style.cssText = 'font-size:8px;padding:1px 5px;border-radius:3px;border:1px solid '+(isActive?'#818cf8':'#475569')+';background:'+(isActive?'#4f46e5':'transparent')+';color:'+(isActive?'#fff':'#64748b')+';cursor:pointer;font-family:inherit;';
  selBtn.textContent = isActive ? '' : '선택';
@@ -11716,8 +11740,8 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  delBtn.style.cssText = 'font-size:8px;padding:1px 4px;border-radius:3px;border:1px solid #334155;background:transparent;color:#ef4444;cursor:pointer;font-family:inherit;';
  delBtn.textContent = '';
  delBtn.onclick = (function(id){ return function(e){ e.stopPropagation(); if(typeof deleteSalesGroup==='function') deleteSalesGroup(id); }; })(gid);
- actRow.appendChild(selBtn); actRow.appendChild(delBtn);
- row.appendChild(dot); row.appendChild(lbl); row.appendChild(cntEl); row.appendChild(actRow);
+ actRow.appendChild(numBtn); actRow.appendChild(selBtn); actRow.appendChild(delBtn);
+ row.appendChild(lbl); row.appendChild(cntEl); row.appendChild(actRow);
  row.onclick = (function(id){ return function(){ if(typeof selectSalesGroup==='function') selectSalesGroup(id); }; })(gid);
  listWrap.appendChild(row);
  });
@@ -12776,9 +12800,10 @@ function addSalesGroup() {
  const num = Object.keys(window.salesGroups).length + 1;
  const label = prompt('그룹 이름을 입력하세요 (예: 구역' + num + ')', '구역' + num);
  if (!label) return;
+ const numStr = prompt('넘버를 입력하세요 (예: 1, 1-1, 2 등)\n비워두면 표시 안 됨', '');
  const gid = 'sg_' + Date.now();
  const color = SALES_GROUP_COLORS[(num - 1) % SALES_GROUP_COLORS.length];
- window.salesGroups[gid] = { label, color, zoneIds: [] };
+ window.salesGroups[gid] = { label, color, zoneIds: [], number: numStr || '' };
  salesGroupActiveId = gid;
  // 도면 히트맵만 갱신 (DOM 재생성 최소화)
  const _gcS = document.getElementById('gc-sales');
@@ -13389,8 +13414,16 @@ function _buildGroupCard(gid, g, catKey) {
   hd.style.cssText = 'display:flex;align-items:center;gap:8px;padding:9px 13px;background:'+g.color+';cursor:pointer;user-select:none;';
 
   const lbl = document.createElement('div');
-  lbl.style.cssText = 'font-size:13px;font-weight:900;color:#fff;flex:1;';
-  lbl.textContent = g.label;
+  lbl.style.cssText = 'font-size:13px;font-weight:900;color:#fff;flex:1;display:flex;align-items:center;gap:6px;';
+  if (g.number) {
+    var numSpan = document.createElement('span');
+    numSpan.style.cssText = 'font-size:10px;font-weight:900;padding:1px 7px;border-radius:4px;background:rgba(0,0,0,.3);color:#fff;';
+    numSpan.textContent = g.number;
+    lbl.appendChild(numSpan);
+  }
+  var nameSpan = document.createElement('span');
+  nameSpan.textContent = g.label;
+  lbl.appendChild(nameSpan);
 
   const cntEl = document.createElement('div');
   cntEl.style.cssText = 'font-size:10px;color:rgba(255,255,255,.75);margin-right:6px;';
@@ -13693,7 +13726,7 @@ function openExcelUploadModal() {
  <div style="padding:14px 20px;background:#f0f9ff;border-bottom:1px solid #bfdbfe;flex-shrink:0;">
  <div style="font-size:11px;font-weight:800;color:#1e40af;margin-bottom:6px;"> 엑셀 형식 안내</div>
  <div style="font-size:10px;color:#1d4ed8;line-height:1.8;">
- • <b>A열: 구역명</b> (zones의 name 필드와 매칭)<br>
+ • <b>A열: 구역명 또는 넘버</b> (그룹 넘버 1, 1-1, 2 또는 구역명으로 매칭)<br>
  • <b>B열: 실매출 (만원)</b> — 하루 총 실매출<br>
  • <b>C열: 평수 (평)</b> — 구역 면적<br>
  • <b>D열: 평당매출 (만/평)</b> — B·C 없이 이것만 있어도 됩니다<br>
@@ -13779,9 +13812,13 @@ function handleExcelFile(file) {
 
  // 그룹명 맵 { label소문자: { gid, label, color, zoneIds } }
  const groupNameMap = {};
+ // 그룹 넘버 맵 { number소문자: { gid, label, color, zoneIds } }
+ const groupNumberMap = {};
  Object.entries(window.salesGroups || {}).forEach(([gid, g]) => {
  const key = String(g.label||'').trim().toLowerCase();
  if (key) groupNameMap[key] = { gid, label: g.label, color: g.color, zoneIds: g.zoneIds || [] };
+ const numKey = String(g.number||'').trim().toLowerCase();
+ if (numKey) groupNumberMap[numKey] = { gid, label: g.label, color: g.color, zoneIds: g.zoneIds || [] };
  });
 
  const parsed = [];
@@ -13792,9 +13829,11 @@ function handleExcelFile(file) {
  const ps1h = parseFloat(r[3]) || 0;
  const key = nameRaw.toLowerCase();
 
- // ① 그룹명 정확 매칭 우선
- let matchedGroup = groupNameMap[key] || null;
- // ② 그룹명 fuzzy 매칭
+ // ① 그룹 넘버 정확 매칭 최우선
+ let matchedGroup = groupNumberMap[key] || null;
+ // ② 그룹명 정확 매칭
+ if (!matchedGroup) matchedGroup = groupNameMap[key] || null;
+ // ③ 그룹명 fuzzy 매칭
  if (!matchedGroup) {
  let bestScore = 0;
  Object.values(groupNameMap).forEach(g => {
@@ -14030,9 +14069,15 @@ function applyExcelData() {
 
 /* ── 샘플 엑셀 템플릿 다운로드 ── */
 function downloadExcelTemplate() {
- const sampleZones = zones.slice(0,8).filter(z => z.name && z.color !== 'cpillar' && !String(z.color).startsWith('ent'));
- const rows = [['구역명', '실매출(만원)', '평수(평)', '평당매출(만/평)']];
- sampleZones.forEach(z => { rows.push([z.name, '', '', '']); });
+ const rows = [['구역명/넘버', '실매출(만원)', '평수(평)', '평당매출(만/평)']];
+ // 그룹이 있으면 그룹 넘버/이름으로 템플릿 생성
+ const groups = Object.values(window.salesGroups || {});
+ if (groups.length) {
+   groups.forEach(g => { rows.push([g.number || g.label, '', '', '']); });
+ } else {
+   const sampleZones = zones.slice(0,8).filter(z => z.name && z.color !== 'cpillar' && !String(z.color).startsWith('ent'));
+   sampleZones.forEach(z => { rows.push([z.name, '', '', '']); });
+ }
  const ws = XLSX.utils.aoa_to_sheet(rows);
  ws['!cols'] = [{wch:20},{wch:14},{wch:10},{wch:18}];
  const wb = XLSX.utils.book_new();
