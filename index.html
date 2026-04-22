@@ -46,6 +46,24 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 }
 .hdr-brand{display:flex;align-items:center;gap:12px;}
 .hdr-logo{display:flex;align-items:center;gap:7px;}
+body.viewer-mode .hdr-logo::after{
+ content:'열람 모드';
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ height:20px;
+ padding:0 8px;
+ margin-left:2px;
+ border-radius:999px;
+ border:1px solid #2f6f54;
+ background:rgba(76,175,130,.14);
+ color:#92d5b3;
+ font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;
+ font-size:10px;
+ font-weight:800;
+ letter-spacing:-.1px;
+ white-space:nowrap;
+}
 
 .hdr h1{
  font-family:'Syne','Pretendard',sans-serif;
@@ -1040,6 +1058,522 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
 
 /* 상단 카테고리 네비게이션 '공산' 버튼 숨김 */
 #cfBtn_공산 { display: none !important; }
+
+@media (max-width: 1024px) {
+ :root{
+  --cell:84px;
+  --row:58px;
+ }
+
+ #zoomCtrl{
+  display:none !important;
+ }
+
+ #canvasArea{
+  touch-action:pan-x pan-y;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+ }
+
+ html, body {
+  min-height: 100dvh;
+ }
+
+ body {
+  height: auto;
+ }
+
+ .hdr{
+  height:auto;
+  min-height:unset;
+  padding:12px 12px 10px;
+  flex-direction:column;
+  align-items:stretch;
+  gap:10px;
+ }
+ .hdr-brand{
+  width:100%;
+  justify-content:space-between;
+  gap:10px;
+ }
+ .hdr-logo{
+  min-width:0;
+  gap:10px;
+ }
+ body.viewer-mode .hdr-logo::after{
+  height:22px;
+  padding:0 9px;
+  font-size:10px;
+ }
+ .hdr h1{
+  font-size:14px;
+  line-height:1.15;
+ }
+ .hdr-sub{
+  font-size:9px;
+  letter-spacing:.7px;
+  text-align:right;
+ }
+ .hdr-divider,
+ .hdr-sep{
+  display:none;
+ }
+ .hdr-r{
+  width:100%;
+  flex-wrap:wrap;
+  justify-content:flex-start;
+  gap:6px;
+ }
+ .hdr-group{
+  flex-wrap:wrap;
+ }
+ .store-select{
+  min-width:120px;
+  max-width:100%;
+  min-height:36px;
+  font-size:12px;
+ }
+ .hdr-icon-btn,
+ .hdr-tool-btn,
+ .hdr-save-btn,
+ .hdr-exit-btn,
+ .btn{
+  min-height:36px;
+ }
+ .hdr-tool-btn,
+ .hdr-save-btn,
+ .hdr-exit-btn{
+  font-size:11px;
+  padding:7px 10px;
+ }
+ .hdr-mode-badge{
+  font-size:9px;
+  padding:5px 8px;
+ }
+
+ #viewTabBar{
+  padding:0 10px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+ }
+ .vtab{
+  flex:0 0 auto;
+  padding:11px 12px;
+  font-size:12px;
+ }
+ #syncStatus{
+  margin-left:8px;
+  flex:0 0 auto;
+  font-size:10px;
+ }
+
+ .nav-row1,
+ .nav-row2,
+ .nav-top{
+  padding-left:10px;
+  padding-right:10px;
+ }
+ .nav-row1{
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  padding-top:8px;
+  padding-bottom:8px;
+ }
+ .nav-title{
+  font-size:13px;
+  flex:1 1 auto;
+  min-width:120px;
+ }
+ .nav-wkbadge{
+  font-size:10px;
+  padding:4px 8px;
+ }
+ .nav-months{
+  order:3;
+  width:100%;
+  margin-top:2px;
+ }
+ .mo-tab{
+  padding:10px 12px;
+  font-size:12px;
+ }
+ .nav-ai-btn{
+  margin-left:auto;
+  min-height:34px;
+  font-size:11px;
+  padding:7px 12px;
+ }
+ .nav-row2{
+  flex-direction:column;
+  align-items:stretch;
+  gap:8px;
+  padding-top:8px;
+  padding-bottom:10px;
+ }
+ .nav-weeks{
+  width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:2px 0 4px;
+  gap:6px;
+  min-height:unset;
+  -webkit-overflow-scrolling:touch;
+ }
+ .wk-btn{
+  width:66px;
+  height:46px;
+ }
+ .wk-btn-label{
+  font-size:10px;
+ }
+ .wk-btn-sub{
+  font-size:8px;
+ }
+ .nav-info-right{
+  width:100%;
+  border-left:none;
+  border-top:1px solid var(--border);
+  margin:0;
+  padding:8px 0 0;
+  flex-wrap:wrap;
+  gap:6px 8px;
+ }
+ .nav-dates,
+ .nav-theme,
+ .nav-event{
+  font-size:11px;
+ }
+
+ #salesMonthNav > div{
+  padding:8px 10px !important;
+  gap:8px !important;
+  flex-wrap:wrap;
+ }
+ #salesNavMonths{
+  order:2;
+  width:100%;
+ }
+
+ #catFocusBar,
+ #catRegionToolbar,
+ .draw-toolbar,
+ .toolbar{
+  padding:8px 10px;
+  gap:6px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+ }
+ .toolbar{
+  align-items:flex-start;
+ }
+ .tbl,
+ .draw-label,
+ .crt-label,
+ .thint{
+  font-size:10px;
+ }
+ .tbb,
+ .draw-btn,
+ .crt-btn{
+  min-height:34px;
+  font-size:11px;
+  flex:0 0 auto;
+ }
+
+ .main-wrap{
+  flex-direction:column;
+  overflow:auto;
+ }
+ .canvas-area{
+  min-height:50vh;
+  padding:12px 10px 18px;
+  align-items:flex-start;
+  justify-content:flex-start;
+ }
+ .gc,
+ #gc-sales{
+  padding:6px;
+ }
+ .gc-scaler{
+  position:relative;
+ }
+ .zoom-ctrl{
+  right:10px !important;
+  left:auto !important;
+  bottom:10px !important;
+  top:auto !important;
+ }
+
+ .rpanel{
+  width:100% !important;
+  border-left:none;
+  border-top:1px solid var(--border);
+  flex-direction:column !important;
+  min-height:0;
+ }
+ #wkSummaryWrap,
+ #detailPanel,
+ #omapRpanel,
+ #rpanel{
+  width:100% !important;
+  max-width:none !important;
+  min-width:0 !important;
+ }
+ #wkSummaryWrap{
+  border-right:none !important;
+  border-bottom:1px solid var(--border);
+ }
+ #detailPanel{
+  padding-bottom:18px;
+ }
+ #summaryResizeHandle,
+ #detailResizeHandle{
+  display:none !important;
+ }
+ .multi-edit-panel{
+  margin:10px;
+ }
+
+ .ai-panel{
+  max-height:72vh;
+  border-top-left-radius:16px;
+  border-top-right-radius:16px;
+ }
+
+ #salesWrap{
+  position:relative;
+ }
+ #salesWrap [data-sales-panel]{
+  position:fixed !important;
+  left:0;
+  right:0;
+  bottom:0;
+  top:auto;
+  width:auto !important;
+  height:min(68dvh, 640px);
+ max-height:min(68dvh, 640px);
+ border-left:none !important;
+ border-top:1px solid #dbe3ea;
+ border-radius:18px 18px 0 0;
+ box-shadow:0 -16px 36px rgba(15,23,42,.18);
+  transform:translateY(calc(100% + 12px));
+  transition:transform .24s ease, box-shadow .24s ease;
+  z-index:460;
+ }
+ #salesWrap.sales-mobile-panel-open [data-sales-panel]{
+  transform:translateY(0);
+  box-shadow:0 -20px 42px rgba(15,23,42,.22);
+ }
+ #salesWrap .sales-panel-shell{
+  flex-direction:column;
+  height:100%;
+ }
+ #salesWrap .sales-analysis-col{
+  min-height:0;
+ }
+ #salesWrap #salesGroupSidePanel{
+  width:100% !important;
+  max-height:38%;
+  border-left:none !important;
+  border-top:1px solid #334155;
+ }
+ #salesWrap .sales-kpi-grid{
+  grid-template-columns:repeat(2, 1fr) !important;
+ }
+ #salesWrap .sales-panel-scroll{
+  padding-bottom:18px;
+ }
+ #salesWrap .sal-tab{
+  font-size:11px !important;
+  padding:11px 4px !important;
+ }
+ #smPanelToggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:64px;
+  padding:0 10px;
+  font-size:11px;
+  font-weight:800;
+  color:#0f172a;
+ }
+}
+
+@media (max-width: 560px) {
+ #omapArea{
+  --omap-min-width:980px;
+ }
+ #navBadge{
+  display:none !important;
+ }
+ .hdr{
+  padding:10px 10px 8px;
+ }
+ .hdr-brand{
+  flex-direction:column;
+  align-items:flex-start;
+ }
+ .hdr-sub{
+  text-align:left;
+ }
+ .hdr-r,
+ .hdr-group{
+  width:100%;
+ }
+ .store-select,
+ .hdr-tool-btn,
+ .hdr-save-btn,
+ .hdr-exit-btn{
+  width:100%;
+  justify-content:center;
+ }
+ .hdr-icon-btn{
+  width:36px;
+  height:36px;
+ }
+ .vtab{
+  padding:11px 10px;
+ }
+ .nav-title{
+  width:100%;
+  margin-left:0;
+ }
+ .nav-ai-btn{
+  width:100%;
+  margin-left:0;
+  justify-content:center;
+ }
+ #aiFloat{
+  display:none !important;
+ }
+ #salesWrap .sales-mobile-toolbar{
+  padding:8px 10px !important;
+  gap:6px !important;
+ }
+ #salesWrap .sales-mobile-toolbar #smPanelToggleInline{
+  display:inline-flex !important;
+  margin-left:auto;
+  min-height:30px;
+  padding:0 12px;
+  border-radius:8px;
+  border:1px solid #9bc5aa;
+  background:#f7fbf8;
+  color:#116149;
+  font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:-.12px;
+  align-items:center;
+  justify-content:center;
+  box-shadow:none;
+ }
+ #salesWrap .sales-mobile-legend{
+  display:none !important;
+ }
+ #salesZoomBar{
+  display:none !important;
+ }
+ #salesWrap [data-sales-panel]{
+  height:min(72dvh, 700px);
+  max-height:min(72dvh, 700px);
+ }
+ #omapWrap{
+  flex-direction:column;
+ }
+ #salesMonthNav > div > button{
+  display:none !important;
+ }
+ #omapArea{
+  --omap-min-width:1120px;
+  width:100%;
+  flex:1 1 auto;
+  min-height:58dvh;
+  overflow-x:auto !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-gutter:stable both-edges;
+ }
+ #omapArea > *{
+  width:max-content !important;
+  min-width:var(--omap-min-width) !important;
+ }
+ #omapArea table{
+  width:max-content !important;
+  min-width:var(--omap-min-width) !important;
+  table-layout:auto !important;
+ }
+ #omapArea th{
+  padding:5px 6px !important;
+  font-size:8.5px !important;
+  white-space:nowrap !important;
+ }
+ #omapArea td{
+  padding:5px 6px !important;
+  font-size:8.6px !important;
+  line-height:1.22 !important;
+  white-space:nowrap !important;
+ }
+ #omapRpanel{
+  display:none !important;
+ }
+ #omapDetailArea{
+  display:none !important;
+ }
+ .canvas-area{
+  padding:10px 8px 14px;
+ }
+ .nav-weeks{
+  gap:4px;
+ }
+ .wk-btn{
+  width:56px;
+  height:40px;
+ }
+ .wk-btn-label{
+  font-size:9px;
+ }
+ .wk-btn-sub{
+  font-size:7px;
+ }
+ #seasonSummary{
+  padding:0 !important;
+  overflow:hidden;
+ }
+ #seasonSummary .season-summary-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:10px 12px 8px;
+ }
+ #seasonSummary .season-summary-body{
+  padding:0 12px 10px;
+ }
+ #seasonSummary.is-collapsed .season-summary-body{
+  display:none;
+ }
+ #seasonSummary .season-summary-toggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:56px;
+  height:28px;
+  padding:0 10px;
+  border-radius:999px;
+  border:1px solid #d1d5db;
+  background:#fff;
+  color:#374151;
+  font-size:11px;
+  font-weight:800;
+ }
+}
+
+body.viewer-mode #salesMonthNav > div > button{
+ display:none !important;
+}
 
 </style>
 
@@ -3656,6 +4190,52 @@ function renderWkSummary() {
 }
 
 
+function renderSeasonSummaryMobileOverride(w){
+ const sm = getSmData(w.id);
+ const q1 = sm.q1 || '';
+ const q2 = sm.q2 || '';
+ const q3 = sm.q3 || '';
+ const mkt = sm.mkt || '';
+ const imp = sm.import || '';
+ const veg = sm.veg || '';
+ const fish = sm.fish || '';
+ const meat = sm.meat || '';
+ const existingBar = document.getElementById('seasonSummary');
+ const bar = existingBar || document.createElement('div');
+ const isMobile = window.matchMedia && window.matchMedia('(max-width: 1024px)').matches;
+ const isOpen = isMobile ? !!window._seasonSummaryOpen : true;
+ if (!existingBar) {
+  bar.id = 'seasonSummary';
+  bar.style.cssText = 'padding:5px 14px;background:#e8eaed;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0;align-items:center;';
+  document.getElementById('navWeeks').closest('.nav').appendChild(bar);
+ }
+ if (isMobile) bar.classList.toggle('is-collapsed', !isOpen);
+ const pill = (label,val,bg,bd,tc)=>val?`<span style="font-size:11px;font-weight:700;padding:3px 9px;background:${bg};border-radius:4px;border:1px solid ${bd};white-space:nowrap">${label} <strong style="color:${tc}">${val}</strong></span>`:'';
+ bar.innerHTML =
+  (isMobile
+   ? `<div class="season-summary-head"><span style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;white-space:nowrap">이번 주 핵심 배치</span><button type="button" class="season-summary-toggle" aria-expanded="${isOpen ? 'true' : 'false'}">${isOpen ? '숨기기' : '보기'}</button></div><div class="season-summary-body">`
+   : `<span style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;white-space:nowrap">이번 주 핵심 배치 →</span>`) +
+  pill('① 1순위:', q1, '#fef2f2','#fca5a5','#dc2626') +
+  pill('② 2순위:', q2, '#fff5e6','#fb923c','#c2410c') +
+  pill('③ 3순위:', q3, '#fffbe6','#fbbf24','#92400e') +
+  (imp ? pill(' 수입:', imp, '#f0f9ff','#7dd3fc','#0369a1') : '') +
+  (veg ? pill(' 채소:', veg, '#e6f2ed','#a7c9bc','#166534') : '') +
+  (fish ? pill(' 수산:', fish, '#f0fdfa','#5eead4','#0f766e') : '') +
+  (meat ? pill(' 축산:', meat, '#fff1f2','#fda4af','#be123c') : '') +
+  (mkt ? `<span style="font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap">${mkt}</span>` : '') +
+  (isMobile ? `</div>` : '');
+ if (isMobile) {
+  const toggleBtn = bar.querySelector('.season-summary-toggle');
+  if (toggleBtn) {
+   toggleBtn.onclick = function() {
+    window._seasonSummaryOpen = !isOpen;
+    renderSeasonSummaryMobileOverride(w);
+   };
+  }
+ }
+}
+renderSeasonSummary = renderSeasonSummaryMobileOverride;
+
 function goWeekById(id){
  const idx = WEEKS.findIndex(w=>w.id===id);
  if(idx>=0) goWeek(idx);
@@ -3980,6 +4560,59 @@ function zoomStep(delta){
  applyScale();
 }
 
+function bindPlanTouchZoom() {
+ const area = document.getElementById('canvasArea');
+ if (!area || area.dataset.touchZoomBound === '1') return;
+ area.dataset.touchZoomBound = '1';
+ let pinch = null;
+
+ function dist(t1, t2) {
+  const dx = t1.clientX - t2.clientX;
+  const dy = t1.clientY - t2.clientY;
+  return Math.hypot(dx, dy);
+ }
+
+ function mid(t1, t2) {
+  return { x:(t1.clientX + t2.clientX)/2, y:(t1.clientY + t2.clientY)/2 };
+ }
+
+ area.addEventListener('touchstart', function(e) {
+  if (!window.matchMedia || !window.matchMedia('(max-width: 1024px)').matches) return;
+  if (!e.touches || e.touches.length !== 2) return;
+  const rect = area.getBoundingClientRect();
+  const m = mid(e.touches[0], e.touches[1]);
+  pinch = {
+   startDist: dist(e.touches[0], e.touches[1]),
+   startScale: curScale,
+   originX: area.scrollLeft + (m.x - rect.left),
+   originY: area.scrollTop + (m.y - rect.top)
+  };
+ }, { passive:true });
+
+ area.addEventListener('touchmove', function(e) {
+  if (!pinch || !e.touches || e.touches.length !== 2) return;
+  e.preventDefault();
+  userZoomed = true;
+  const nextDist = dist(e.touches[0], e.touches[1]);
+  const nextScale = Math.min(Math.max(pinch.startScale * (nextDist / Math.max(1, pinch.startDist)), 0.2), 2.0);
+  curScale = nextScale;
+  localStorage.setItem('planZoomScale', curScale);
+  applyScale();
+  const rect = area.getBoundingClientRect();
+  const m = mid(e.touches[0], e.touches[1]);
+  const ratio = nextScale / Math.max(0.01, pinch.startScale);
+  area.scrollLeft = Math.max(0, pinch.originX * ratio - (m.x - rect.left));
+  area.scrollTop = Math.max(0, pinch.originY * ratio - (m.y - rect.top));
+ }, { passive:false });
+
+ function clearPinch(e) {
+  if (!e.touches || e.touches.length < 2) pinch = null;
+ }
+
+ area.addEventListener('touchend', clearPinch, { passive:true });
+ area.addEventListener('touchcancel', clearPinch, { passive:true });
+}
+
 // ── 줌 컨트롤 위치: canvasArea 우상단에 고정 ──
 function positionZoomCtrl(){
  const area = document.getElementById('canvasArea');
@@ -4010,7 +4643,10 @@ document.addEventListener('DOMContentLoaded', function() {
  });
 });
 // 초기 배치 + planView 전환 시 재배치
-document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(positionZoomCtrl, 100); });
+document.addEventListener('DOMContentLoaded', ()=>{
+ setTimeout(positionZoomCtrl, 100);
+ bindPlanTouchZoom();
+});
 
 // 마우스 휠 줌
 // canvasArea 스크롤 시 비율 실시간 저장 (탭 전환 시 정확한 위치 복원용)
@@ -6443,7 +7079,6 @@ function enterViewer(){
  if (_sgp) _sgp.style.display = 'none';
  removeSalesGroupClickListeners();
  renderNav(); render(); applyScale(); renderWkSummary();
- showToast('열람 모드');
 }
 
 function backToHome(){
@@ -7718,7 +8353,7 @@ document.addEventListener('keydown',e=>{
 });
 
 // ═══════════ TOAST ═══════════
-function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 
 // ═══════════ AI ═══════════
 let aiHistArr=[];
@@ -10064,6 +10699,7 @@ function renderSalesView() {
 
  // ① 툴바
  const toolbar = document.createElement('div');
+ toolbar.className = 'sales-mobile-toolbar';
  toolbar.style.cssText = 'background:#f3f4f6;padding:8px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;';
  toolbar.innerHTML = `
  <span style="font-size:11px;font-weight:800;color:#374151;letter-spacing:.3px;"> 평당매출 분석</span>
@@ -10090,6 +10726,18 @@ function renderSalesView() {
  const el = toolbar.querySelector('#' + id);
  if (el) el.style.display = isAdmin ? '' : 'none';
  });
+ if (!toolbar.querySelector('#smPanelToggleInline')) {
+  const panelInlineBtn = document.createElement('button');
+  panelInlineBtn.id = 'smPanelToggleInline';
+  panelInlineBtn.type = 'button';
+  panelInlineBtn.textContent = '분석 보기';
+  panelInlineBtn.style.cssText = 'display:none;';
+  panelInlineBtn.onclick = function(e) {
+   e.stopPropagation();
+   setSalesMobilePanelOpen();
+  };
+  toolbar.appendChild(panelInlineBtn);
+ }
  wrap.appendChild(toolbar);
 
  // ① - 2 월별 동기화 안내 바 (기존 상단 navMonths 탭바와 연동)
@@ -10128,6 +10776,7 @@ function renderSalesView() {
 
  if (!isViewer) wrap.appendChild(monthBar);
  const legend = document.createElement('div');
+ legend.className = 'sales-mobile-legend';
  legend.style.cssText = 'background:#e8eaed;padding:5px 16px;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap;border-bottom:2px solid #005233;';
  legend.innerHTML = `
  <span style="font-size:9px;font-weight:700;color:#9ca3af;letter-spacing:.5px;">배경 = 평당매출</span>
@@ -10238,7 +10887,7 @@ function renderSalesView() {
  requestAnimationFrame(applySalesScale);
  }
 
- function salesZoomFit() {
+function salesZoomFit() {
  const gcEl = document.getElementById('gc-sales');
  const scEl = document.getElementById('salesMapScaler');
  if (!scEl || !mapCol) return;
@@ -10249,6 +10898,69 @@ function renderSalesView() {
  const mh = mapCol.clientHeight - 32;
  window.salesMapScale = Math.min(mw / rawW, mh / rawH, 1.0);
  requestAnimationFrame(applySalesScale);
+}
+
+ function salesZoomFitMobileFocus() {
+  const gcEl = document.getElementById('gc-sales');
+  const scEl = document.getElementById('salesMapScaler');
+  if (!scEl || !mapCol || !gcEl || !isSalesMobileViewport()) return;
+  const rawW = gcEl.offsetWidth || scEl.offsetWidth;
+  const rawH = gcEl.offsetHeight || scEl.offsetHeight;
+  if (!rawW) return;
+  const mw = Math.max(120, mapCol.clientWidth - 24);
+  const mh = Math.max(120, mapCol.clientHeight - 24);
+  const fitW = mw / rawW;
+  const fitH = rawH ? (mh / rawH) : fitW;
+  const fitBase = Math.min(fitW, fitH);
+  window.salesMapScale = Math.min(Math.max(fitBase * 0.82, 0.2), 0.75);
+  requestAnimationFrame(function() {
+   applySalesScale();
+   mapCol.scrollLeft = 0;
+   mapCol.scrollTop = 0;
+  });
+ }
+
+ function bindSalesTouchZoom() {
+  if (!mapCol || mapCol.dataset.touchZoomBound === '1') return;
+  mapCol.dataset.touchZoomBound = '1';
+  let pinch = null;
+  function dist(t1, t2) {
+   const dx = t1.clientX - t2.clientX;
+   const dy = t1.clientY - t2.clientY;
+   return Math.hypot(dx, dy);
+  }
+  function mid(t1, t2) {
+   return { x:(t1.clientX + t2.clientX)/2, y:(t1.clientY + t2.clientY)/2 };
+  }
+  mapCol.addEventListener('touchstart', function(e) {
+   if (e.touches.length !== 2) return;
+   const m = mid(e.touches[0], e.touches[1]);
+   pinch = {
+    startDist: dist(e.touches[0], e.touches[1]),
+    startScale: window.salesMapScale || 0.6,
+    startLeft: mapCol.scrollLeft,
+    startTop: mapCol.scrollTop,
+    originX: mapCol.scrollLeft + (m.x - mapCol.getBoundingClientRect().left),
+    originY: mapCol.scrollTop + (m.y - mapCol.getBoundingClientRect().top)
+   };
+  }, { passive:true });
+  mapCol.addEventListener('touchmove', function(e) {
+   if (!pinch || e.touches.length !== 2) return;
+   e.preventDefault();
+   const nextDist = dist(e.touches[0], e.touches[1]);
+   const nextScale = Math.min(Math.max(pinch.startScale * (nextDist / Math.max(1, pinch.startDist)), 0.25), 3);
+   const ratio = nextScale / Math.max(0.01, pinch.startScale);
+   window.salesMapScale = nextScale;
+   applySalesScale();
+   const m = mid(e.touches[0], e.touches[1]);
+   const targetX = pinch.originX * ratio - (m.x - mapCol.getBoundingClientRect().left);
+   const targetY = pinch.originY * ratio - (m.y - mapCol.getBoundingClientRect().top);
+   mapCol.scrollLeft = Math.max(0, targetX);
+   mapCol.scrollTop = Math.max(0, targetY);
+  }, { passive:false });
+  mapCol.addEventListener('touchend', function(e) {
+   if (e.touches.length < 2) pinch = null;
+  }, { passive:true });
  }
 
  // ── salesZoomBar: 이미 있으면 재사용, 없으면 생성 ──
@@ -10264,6 +10976,18 @@ function renderSalesView() {
  + '<button class="zoom-btn" id="smZoomIn">+</button>'
  + '<button class="zoom-btn" id="smZoomFit" title="화면에 맞춤" style="font-size:12px;">⊡</button>';
  document.body.appendChild(zoomBar);
+ }
+ if (!document.getElementById('smPanelToggle')) {
+  const panelBtn = document.createElement('button');
+  panelBtn.className = 'zoom-btn';
+  panelBtn.id = 'smPanelToggle';
+  panelBtn.type = 'button';
+  panelBtn.textContent = '분석 보기';
+  panelBtn.onclick = function(e){
+   e.stopPropagation();
+   setSalesMobilePanelOpen();
+  };
+  zoomBar.appendChild(panelBtn);
  }
  // % 표시 최신화
  const pctEl2 = document.getElementById('smZoomPct');
@@ -10292,6 +11016,9 @@ function renderSalesView() {
  document.getElementById('smZoomOut').onclick = function(e){ e.stopPropagation(); salesZoomStep(-0.1); };
  document.getElementById('smZoomIn').onclick = function(e){ e.stopPropagation(); salesZoomStep(+0.1); };
  document.getElementById('smZoomFit').onclick = function(e){ e.stopPropagation(); salesZoomFit(); };
+ bindSalesTouchZoom();
+ bindSalesPanelSwipeClose();
+ syncSalesMobilePanelUI();
 
 
 
@@ -10372,12 +11099,17 @@ function renderSalesView() {
 
  // ── 줌 컨트롤 표시 & 위치 고정 (applySalesScale 후) ──
  setTimeout(function() {
+ if (isSalesMobileViewport() && !window._salesMobileInitialFitted) {
+ window._salesMobileInitialFitted = true;
+ salesZoomFitMobileFocus();
+ }
  if (typeof window._applySalesScale === 'function') window._applySalesScale();
  const bar = document.getElementById('salesZoomBar');
  if (bar) {
  bar.style.display = 'flex';
  if (typeof window._positionSalesZoomCtrl === 'function') window._positionSalesZoomCtrl();
  }
+ syncSalesMobilePanelUI();
  // 지점 변경 시에만 입구로 이동
  if (window._salesPanToEntrance) {
  window._salesPanToEntrance = false;
@@ -10409,7 +11141,126 @@ function renderSalesView() {
  salArea.scrollTo({ left: Math.max(0, targetX), top: Math.max(0, targetY), behavior: 'smooth' });
  }, 80);
  }
- }, 120);
+}, 120);
+}
+
+function isSalesMobileViewport() {
+ return window.matchMedia && window.matchMedia('(max-width: 1024px)').matches;
+}
+
+function syncSalesMobilePanelUI() {
+ const wrap = document.getElementById('salesWrap');
+ const btn = document.getElementById('smPanelToggle');
+ const inlineBtn = document.getElementById('smPanelToggleInline');
+ const mobile = isSalesMobileViewport();
+ const open = mobile && !!window._salesMobilePanelOpen;
+
+ if (wrap) wrap.classList.toggle('sales-mobile-panel-open', open);
+ if (btn) {
+  btn.style.display = 'none';
+  btn.textContent = open ? '분석 닫기' : '분석 보기';
+  btn.setAttribute('aria-pressed', open ? 'true' : 'false');
+ }
+ if (inlineBtn) {
+  inlineBtn.style.display = mobile ? 'inline-flex' : 'none';
+  inlineBtn.textContent = open ? '분석 닫기' : '분석 보기';
+  inlineBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+ }
+}
+
+function setSalesMobilePanelOpen(forceOpen) {
+ if (!isSalesMobileViewport()) {
+  window._salesMobilePanelOpen = false;
+  syncSalesMobilePanelUI();
+  return;
+ }
+ window._salesMobilePanelOpen = (typeof forceOpen === 'boolean')
+  ? forceOpen
+  : !window._salesMobilePanelOpen;
+ syncSalesMobilePanelUI();
+ setTimeout(function() {
+  if (typeof window._applySalesScale === 'function') window._applySalesScale();
+  if (typeof window._positionSalesZoomCtrl === 'function') window._positionSalesZoomCtrl();
+ }, 80);
+}
+
+function bindSalesPanelSwipeClose() {
+ if (window._salesPanelSwipeDocBound) return;
+ let startY = 0;
+ let startX = 0;
+ let dragging = false;
+ let deltaY = 0;
+ let panel = null;
+ let sourceEl = null;
+
+ function beginSwipe(e) {
+  panel = document.querySelector('#salesWrap [data-sales-panel]');
+  if (!panel) return;
+  if (!isSalesMobileViewport() || !window._salesMobilePanelOpen) return;
+  if (!e.touches || e.touches.length !== 1) return;
+  if (!panel.contains(e.target)) return;
+  const targetScroll = e.target && e.target.closest ? e.target.closest('.sales-panel-scroll') : null;
+  if (targetScroll && targetScroll.scrollTop > 4) return;
+  startY = e.touches[0].clientY;
+  startX = e.touches[0].clientX;
+  deltaY = 0;
+  dragging = true;
+  sourceEl = targetScroll;
+  panel.style.transition = 'none';
+ }
+
+ function moveSwipe(e) {
+  if (!panel) return;
+  if (!dragging || !e.touches || e.touches.length !== 1) return;
+  const moveY = e.touches[0].clientY - startY;
+  const moveX = e.touches[0].clientX - startX;
+  if (Math.abs(moveX) > Math.abs(moveY)) {
+   dragging = false;
+   panel.style.transition = '';
+   panel.style.transform = '';
+   deltaY = 0;
+   sourceEl = null;
+   return;
+  }
+  if (sourceEl && sourceEl.scrollTop > 4) {
+   dragging = false;
+   panel.style.transition = '';
+   panel.style.transform = '';
+   deltaY = 0;
+   sourceEl = null;
+   return;
+  }
+  deltaY = Math.max(0, moveY);
+  if (deltaY > 0) {
+   e.preventDefault();
+   panel.style.transform = 'translateY(' + deltaY + 'px)';
+  }
+ }
+
+ function finishSwipe() {
+  if (!panel) return;
+  if (!dragging) return;
+  dragging = false;
+  panel.style.transition = '';
+  panel.style.transform = '';
+  if (deltaY > 90) setSalesMobilePanelOpen(false);
+  deltaY = 0;
+  sourceEl = null;
+ }
+
+ document.addEventListener('touchstart', beginSwipe, { passive:true, capture:true });
+ document.addEventListener('touchmove', moveSwipe, { passive:false, capture:true });
+ document.addEventListener('touchend', finishSwipe, { passive:true, capture:true });
+ document.addEventListener('touchcancel', finishSwipe, { passive:true, capture:true });
+ window._salesPanelSwipeDocBound = true;
+}
+
+if (!window._salesMobilePanelResizeBound) {
+ window.addEventListener('resize', function() {
+  if (!isSalesMobileViewport()) window._salesMobilePanelOpen = false;
+  syncSalesMobilePanelUI();
+ });
+ window._salesMobilePanelResizeBound = true;
 }
 
 /* ── 도면 히트맵: 그룹 단위 덩어리 표시 ── */
@@ -11657,10 +12508,12 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
 
  // 좌우 분할 래퍼: 왼쪽=분석패널, 오른쪽=그룹관리패널(편집모드 시)
  const outerFlex = document.createElement('div');
+ outerFlex.className = 'sales-panel-shell';
  outerFlex.style.cssText = 'display:flex;flex:1;overflow:hidden;min-height:0;';
 
  // ── 왼쪽: 기존 분석 패널 영역 ──
  const analysisCol = document.createElement('div');
+ analysisCol.className = 'sales-analysis-col';
  analysisCol.style.cssText = 'display:flex;flex-direction:column;flex:1;overflow:hidden;min-width:0;transition:flex .2s ease;';
 
  // ── 오른쪽: 그룹 관리 패널 ──
@@ -11826,8 +12679,10 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  sumWrap.style.cssText='flex-shrink:0;background:#fff;border-bottom:2px solid #f1f5f9;';
 
  const sumHd = document.createElement('div');
- sumHd.style.cssText='padding:7px 14px 5px;display:flex;align-items:center;gap:6px;';
+ sumHd.className = 'sales-panel-drag-handle';
+ sumHd.style.cssText='padding:12px 14px 5px;display:flex;align-items:center;gap:6px;position:relative;touch-action:none;';
  sumHd.innerHTML=
+ '<span style="width:34px;height:4px;border-radius:999px;background:#d1d5db;position:absolute;left:50%;top:6px;transform:translateX(-50%);"></span>'+
  '<span style="font-size:13px;"></span>'+
  '<div>'+
  '<div style="font-size:12px;font-weight:900;color:#111827;letter-spacing:-.3px;">공간 효율 분석</div>'+
@@ -11836,6 +12691,7 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  sumWrap.appendChild(sumHd);
 
  const kpiGrid = document.createElement('div');
+ kpiGrid.className = 'sales-kpi-grid';
  kpiGrid.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid #f1f5f9;';
 
  // 그룹 평수 합산
@@ -12036,6 +12892,7 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  const tabBar=document.createElement('div');
  tabBar.style.cssText='flex-shrink:0;display:flex;background:#fff;border-bottom:2px solid #f1f5f9;';
  const tabContents=document.createElement('div');
+ tabContents.className = 'sales-panel-scroll';
  tabContents.style.cssText='flex:1;overflow-y:auto;min-height:0;background:#f8fafc;';
 
  const TABS=[
