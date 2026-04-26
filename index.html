@@ -1539,8 +1539,7 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
   font-size:7px;
  }
  #seasonSummary{
-  padding:0 !important;
-  overflow:hidden;
+  display: none !important;
  }
  #seasonSummary .season-summary-head{
   display:flex;
@@ -1573,6 +1572,47 @@ body.viewer-mode .zb.cat-zone-border { border-width: 1px !important; border-colo
 
 body.viewer-mode #salesMonthNav > div > button{
  display:none !important;
+}
+
+/* ── 모바일 주차 요약 바 (이번 주 핵심 배치와 동일 스타일) ── */
+@media (max-width: 768px) {
+ #mobWkSummaryBar {
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow: hidden;
+  display: none; /* JS로 제어 */
+ }
+ body.plan-view-active #mobWkSummaryBar { display: block; }
+
+ #mobWkSummaryBar .msb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px 7px;
+ }
+ #mobWkSummaryBar .msb-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--muted); letter-spacing: 1px; white-space: nowrap;
+ }
+ #mobWkSummaryBar .msb-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 48px; height: 26px; padding: 0 10px;
+  border-radius: 999px; border: 1px solid #d1d5db;
+  background: #fff; color: #374151;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 11px; font-weight: 800; cursor: pointer;
+ }
+ #mobWkSummaryBar.is-collapsed .msb-body { display: none; }
+ #mobWkSummaryBar .msb-body {
+  padding: 0 12px 10px;
+ }
+ /* 주차 헤더(날짜·이벤트) 숨기고 MKT+순위+카테고리+배치현황만 */
+ #mobWkSummaryBar .msb-body > div > div:first-child { display: none !important; }
+}
+@media (min-width: 769px) {
+ #mobWkSummaryBar { display: none !important; }
 }
 
 </style>
@@ -2751,6 +2791,14 @@ window.onerror = function(msg, src, line, col, err) {
  <span class="nav-theme" id="navTheme"></span>
  </div>
  </div>
+</div>
+<!-- 📱 모바일 주차 요약 바 (네비 바로 아래 고정) -->
+<div id="mobWkSummaryBar" class="is-collapsed">
+ <div class="msb-head">
+  <span class="msb-label" id="mobWkSummaryLabel">이번 주 요약</span>
+  <button type="button" class="msb-toggle" id="mobWkSummaryToggle" onclick="toggleMobWkSummary()">보기</button>
+ </div>
+ <div class="msb-body" id="mobWkSummaryBody"></div>
 </div>
 <!-- 카테고리 이동 바 — 도면 탭 + nav 아래 표시 -->
 <div id="catFocusBar">
@@ -16906,6 +16954,67 @@ function psuAutoFillDays() {
 }
 
 
+
+/* ── 📱 모바일 주차 요약 바 ── */
+(function() {
+ var _open = false;
+
+ function _isMob() {
+  return window.matchMedia && window.matchMedia('(max-width:768px)').matches;
+ }
+
+ function _fill() {
+  var body = document.getElementById('mobWkSummaryBody');
+  var card = document.getElementById('wkSummaryCard');
+  var lbl  = document.getElementById('mobWkSummaryLabel');
+  if (!body || !card) return;
+  // wkSummaryCard 내용 그대로 복사
+  body.innerHTML = card.innerHTML;
+  // 주차 라벨 갱신
+  var wk = (typeof getCurWk === 'function') ? getCurWk() : null;
+  if (lbl && wk) lbl.textContent = wk.label + ' 요약';
+ }
+
+ function _updateBar() {
+  var bar    = document.getElementById('mobWkSummaryBar');
+  var toggle = document.getElementById('mobWkSummaryToggle');
+  if (!bar) return;
+  bar.classList.toggle('is-collapsed', !_open);
+  if (toggle) toggle.textContent = _open ? '숨기기' : '보기';
+  if (_open) _fill();
+ }
+
+ window.toggleMobWkSummary = function() {
+  if (!_isMob()) return;
+  _open = !_open;
+  _updateBar();
+ };
+
+ // renderWkSummary 감싸기 — 바가 열려있으면 내용도 갱신
+ var _orig = window.renderWkSummary;
+ window.renderWkSummary = function() {
+  if (typeof _orig === 'function') _orig();
+  if (_isMob()) {
+   setTimeout(function() {
+    var lbl = document.getElementById('mobWkSummaryLabel');
+    var wk  = (typeof getCurWk === 'function') ? getCurWk() : null;
+    if (lbl && wk) lbl.textContent = wk.label + ' 요약';
+    if (_open) _fill();
+   }, 30);
+  }
+ };
+
+ // 주차 버튼 탭하면 바 자동으로 열기
+ var _origGoWeek = window.goWeekById;
+ window.goWeekById = function(id) {
+  if (typeof _origGoWeek === 'function') _origGoWeek(id);
+  if (_isMob() && !_open) {
+   setTimeout(function() { _open = true; _updateBar(); }, 80);
+  } else if (_isMob() && _open) {
+   setTimeout(_fill, 80);
+  }
+ };
+})();
 
 </script>
 </body>
