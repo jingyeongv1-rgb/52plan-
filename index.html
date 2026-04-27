@@ -11989,9 +11989,12 @@ function renderSalesGroupBlocks(gcEl, groups, zoneGroupMap, metricMap, maxPerSal
  if (!zids.length) return;
 
  var gMetrics = zids.map(zid => metricMap[zid]).filter(Boolean);
- var tSales = gMetrics.reduce((s,m)=>s+m.sales,0);
- var tArea = gMetrics.reduce((s,m)=>s+m.area, 0);
- var tPS = tArea > 0 ? Math.floor(tSales / tArea) : 0;
+ var gd = (window.salesGroupData && window.salesGroupData[gid]) ? window.salesGroupData[gid] : null;
+ var gdSales = gd ? (Number(gd.sales) || 0) : 0;
+ var gdArea = gd ? (Number(gd.area) || 0) : 0;
+ var tSales = gdSales > 0 ? gdSales : gMetrics.reduce((s,m)=>s+m.sales,0);
+ var tArea = gdArea > 0 ? gdArea : gMetrics.reduce((s,m)=>s+m.area, 0);
+ var tPS = tArea > 0 ? ((gdSales > 0 && gdArea > 0) ? Math.round(tSales / tArea) : Math.floor(tSales / tArea)) : 0;
  var avgGrade =
  gMetrics.filter(m=>m.grade==='A').length > gMetrics.length/2 ? 'A' :
  gMetrics.filter(m=>m.grade==='C').length > gMetrics.length/2 ? 'C' : 'B';
