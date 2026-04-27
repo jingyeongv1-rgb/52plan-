@@ -12692,7 +12692,7 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  groupCol.id = 'salesGroupSidePanel';
  const hasEdit = (typeof salesGroupEditMode !== 'undefined') && salesGroupEditMode && isAdmin && !isViewer;
  groupCol.style.cssText = 'display:flex;flex-direction:column;overflow:hidden;transition:width .2s ease,border .2s ease;border-left:' +
- (hasEdit ? '2px solid #6366f1' : 'none') + ';width:' + (hasEdit ? '270px' : '0') + ';flex-shrink:0;background:#0f172a;';
+ (hasEdit ? '1px solid #e5e7eb' : 'none') + ';width:' + (hasEdit ? '280px' : '0') + ';flex-shrink:0;background:#fff;';
 
  outerFlex.appendChild(analysisCol);
  outerFlex.appendChild(groupCol);
@@ -12705,10 +12705,10 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
 
  // 제목 바
  const hd = document.createElement('div');
- hd.style.cssText = 'flex-shrink:0;padding:12px 12px 10px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;';
- hd.innerHTML = '<span style="font-size:12px;font-weight:900;color:#e2e8f0;letter-spacing:.2px;"> 그룹 지정</span>';
+ hd.style.cssText = 'flex-shrink:0;padding:11px 12px 10px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#fff;';
+ hd.innerHTML = '<span style="font-size:12px;font-weight:900;color:#111827;letter-spacing:.1px;">그룹 지정</span>';
  const doneBtn = document.createElement('button');
- doneBtn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;border:1.5px solid #22c55e;background:rgba(34,197,94,.15);color:#4ade80;cursor:pointer;';
+ doneBtn.style.cssText = 'font-family:inherit;font-size:11px;font-weight:800;padding:4px 12px;border-radius:6px;border:1.5px solid #16a34a;background:#f0fdf4;color:#16a34a;cursor:pointer;';
  doneBtn.textContent = '✓ 완료';
  doneBtn.onclick = function() { if(typeof toggleSalesGroupEdit==='function') toggleSalesGroupEdit(); };
  hd.appendChild(doneBtn);
@@ -12716,18 +12716,18 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
 
  // 힌트
  const hint = document.createElement('div');
- hint.style.cssText = 'flex-shrink:0;padding:7px 12px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b;line-height:1.5;background:#0a0f1a;';
+ hint.style.cssText = 'flex-shrink:0;padding:6px 12px;font-size:10px;color:#6b7280;border-bottom:1px solid #f1f5f9;line-height:1.5;background:#f9fafb;';
  hint.textContent = '그룹 선택 후 도면 구역 클릭으로 배정';
  groupCol.appendChild(hint);
 
  // 그룹 목록 (스크롤)
  const listWrap = document.createElement('div');
- listWrap.style.cssText = 'flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:5px;';
+ listWrap.style.cssText = 'flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px;background:#f9fafb;';
 
  const entries = Object.entries(window.salesGroups || {});
  if (!entries.length) {
    const empty = document.createElement('div');
-   empty.style.cssText = 'padding:20px 0;text-align:center;font-size:11px;color:#475569;';
+   empty.style.cssText = 'padding:24px 0;text-align:center;font-size:11px;color:#9ca3af;';
    empty.textContent = '그룹 없음';
    listWrap.appendChild(empty);
  } else {
@@ -12737,61 +12737,53 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
 
      var row = document.createElement('div');
      row.style.cssText = [
-       'display:flex;flex-direction:column;gap:6px;',
-       'padding:9px 10px;border-radius:8px;cursor:pointer;',
-       'background:' + (isActive ? 'linear-gradient(135deg,#1e1b4b,#1a1060)' : '#1e293b') + ';',
-       'border:2px solid ' + (isActive ? g.color : '#2d3748') + ';',
+       'display:flex;flex-direction:column;gap:7px;',
+       'padding:10px 11px;border-radius:10px;cursor:pointer;',
+       'background:' + (isActive ? g.color + '12' : '#fff') + ';',
+       'border:2px solid ' + (isActive ? g.color : '#e5e7eb') + ';',
+       'box-shadow:0 1px 3px rgba(0,0,0,.06);',
        'transition:border-color .12s, background .12s;'
      ].join('');
-     row.onmouseover = function(){ if(!isActive){ row.style.borderColor=g.color+'88'; row.style.background='#253347'; } };
-     row.onmouseout = function(){ if(!isActive){ row.style.borderColor='#2d3748'; row.style.background='#1e293b'; } };
+     row.onmouseover = function(){ if(!isActive){ row.style.borderColor=g.color+'88'; row.style.background=g.color+'08'; } };
+     row.onmouseout  = function(){ if(!isActive){ row.style.borderColor='#e5e7eb'; row.style.background='#fff'; } };
 
      // 상단 행: 색상 바 + 라벨 + 선택버튼
      var topRow = document.createElement('div');
-     topRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+     topRow.style.cssText = 'display:flex;align-items:center;gap:9px;';
 
-     // 색상 블록 (크게)
      var colorBar = document.createElement('div');
-     colorBar.style.cssText = [
-       'width:14px;height:36px;border-radius:4px;flex-shrink:0;',
-       'background:'+g.color+';',
-       'box-shadow:0 0 6px '+g.color+'88;'
-     ].join('');
+     colorBar.style.cssText = 'width:5px;height:38px;border-radius:3px;flex-shrink:0;background:'+g.color+';';
      topRow.appendChild(colorBar);
 
-     // 라벨 + 구역수
      var labelCol = document.createElement('div');
      labelCol.style.cssText = 'flex:1;min-width:0;';
      labelCol.innerHTML =
-       '<div style="font-size:13px;font-weight:900;color:' + (isActive ? '#fff' : '#cbd5e1') + ';' +
-       'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2;margin-bottom:3px;">' + g.label + '</div>' +
-       '<div style="font-size:10px;color:' + g.color + ';font-weight:700;">' +
-       (g.number ? '<span style="background:'+g.color+'33;padding:1px 5px;border-radius:3px;margin-right:4px;">'+g.number+'</span>' : '') +
+       '<div style="font-size:13px;font-weight:800;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3;margin-bottom:2px;">' + g.label + '</div>' +
+       '<div style="font-size:10px;color:#6b7280;font-weight:600;">' +
+       (g.number ? '<span style="background:'+g.color+'22;color:'+g.color+';padding:1px 6px;border-radius:4px;margin-right:5px;font-weight:800;">'+g.number+'</span>' : '') +
        (g.zoneIds||[]).length + '개 구역</div>';
      topRow.appendChild(labelCol);
 
-     // 선택 버튼
      var selBtn = document.createElement('button');
      selBtn.style.cssText = [
        'font-family:inherit;font-size:10px;font-weight:800;',
-       'padding:4px 8px;border-radius:6px;flex-shrink:0;cursor:pointer;',
-       'border:1.5px solid ' + (isActive ? g.color : '#475569') + ';',
-       'background:' + (isActive ? g.color : 'transparent') + ';',
-       'color:' + (isActive ? '#fff' : '#94a3b8') + ';',
+       'padding:5px 10px;border-radius:7px;flex-shrink:0;cursor:pointer;white-space:nowrap;',
+       'border:1.5px solid ' + (isActive ? g.color : '#d1d5db') + ';',
+       'background:' + (isActive ? g.color : '#fff') + ';',
+       'color:' + (isActive ? '#fff' : '#6b7280') + ';',
        'transition:all .12s;'
      ].join('');
      selBtn.textContent = isActive ? '✓ 선택됨' : '선택';
      selBtn.onclick = (function(id){ return function(e){ e.stopPropagation(); if(typeof selectSalesGroup==='function') selectSalesGroup(id); }; })(gid);
      topRow.appendChild(selBtn);
-
      row.appendChild(topRow);
 
-     // 하단 행: # 수정 + 이름수정 + 삭제 버튼
+     // 하단 행: 넘버 수정 + 이름 수정 + 삭제 — 한 줄 고정
      var btnRow = document.createElement('div');
-     btnRow.style.cssText = 'display:flex;gap:4px;padding-left:10px;margin-top:2px;';
+     btnRow.style.cssText = 'display:flex;gap:5px;padding-left:14px;';
 
      var numBtn = document.createElement('button');
-     numBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 7px;border-radius:4px;border:1px solid #334155;background:transparent;color:#64748b;cursor:pointer;white-space:nowrap;flex:1;';
+     numBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:4px 0;border-radius:5px;border:1px solid #e5e7eb;background:#f9fafb;color:#6b7280;cursor:pointer;white-space:nowrap;flex:1;min-width:0;';
      numBtn.textContent = '# 넘버';
      numBtn.onclick = (function(id, grp){ return function(e){
        e.stopPropagation();
@@ -12804,7 +12796,7 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
      }; })(gid, g);
 
      var nameBtn = document.createElement('button');
-     nameBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 7px;border-radius:4px;border:1px solid #6366f133;background:transparent;color:#818cf8;cursor:pointer;white-space:nowrap;flex:1;';
+     nameBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:4px 0;border-radius:5px;border:1px solid #e0e7ff;background:#f5f3ff;color:#6366f1;cursor:pointer;white-space:nowrap;flex:1;min-width:0;';
      nameBtn.textContent = '✏️ 이름';
      nameBtn.onclick = (function(id, grp){ return function(e){
        e.stopPropagation();
@@ -12823,8 +12815,8 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
      }; })(gid, g);
 
      var delBtn = document.createElement('button');
-     delBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 7px;border-radius:4px;border:1px solid #ef444433;background:transparent;color:#ef4444;cursor:pointer;white-space:nowrap;';
-     delBtn.textContent = '🗑';
+     delBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:4px 8px;border-radius:5px;border:1px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;white-space:nowrap;flex-shrink:0;';
+     delBtn.textContent = '🗑 삭제';
      delBtn.title = '그룹 삭제';
      delBtn.onclick = (function(id){ return function(e){ e.stopPropagation(); if(typeof deleteSalesGroup==='function') deleteSalesGroup(id); }; })(gid);
 
@@ -12841,12 +12833,12 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
 
  // 추가 버튼
  const addWrap = document.createElement('div');
- addWrap.style.cssText = 'flex-shrink:0;padding:6px 8px;border-top:1px solid #1e293b;';
+ addWrap.style.cssText = 'flex-shrink:0;padding:8px 10px;border-top:1px solid #e5e7eb;background:#fff;';
  const addBtn = document.createElement('button');
- addBtn.style.cssText = 'width:100%;font-family:inherit;font-size:9px;font-weight:700;padding:5px;border-radius:5px;border:1.5px dashed #334155;background:transparent;color:#475569;cursor:pointer;';
+ addBtn.style.cssText = 'width:100%;font-family:inherit;font-size:10px;font-weight:700;padding:7px;border-radius:7px;border:1.5px dashed #d1d5db;background:#f9fafb;color:#6b7280;cursor:pointer;transition:all .12s;';
  addBtn.textContent = '+ 새 그룹 추가';
- addBtn.onmouseover = function(){ addBtn.style.borderColor='#6366f1'; addBtn.style.color='#a5b4fc'; };
- addBtn.onmouseout = function(){ addBtn.style.borderColor='#334155'; addBtn.style.color='#475569'; };
+ addBtn.onmouseover = function(){ addBtn.style.borderColor='#6366f1'; addBtn.style.color='#6366f1'; addBtn.style.background='#eef2ff'; };
+ addBtn.onmouseout  = function(){ addBtn.style.borderColor='#d1d5db'; addBtn.style.color='#6b7280'; addBtn.style.background='#f9fafb'; };
  addBtn.onclick = function(){ if(typeof addSalesGroup==='function') addSalesGroup(); };
  addWrap.appendChild(addBtn);
  groupCol.appendChild(addWrap);
@@ -12860,8 +12852,8 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  const panel = document.getElementById('salesGroupSidePanel');
  if (!panel) return;
  const on = (typeof salesGroupEditMode !== 'undefined') && salesGroupEditMode && isAdmin && !isViewer;
- panel.style.width = on ? '270px' : '0';
- panel.style.borderLeft = on ? '2px solid #6366f1' : 'none';
+ panel.style.width = on ? '280px' : '0';
+ panel.style.borderLeft = on ? '1px solid #e5e7eb' : 'none';
  if (on) renderGroupSidePanel();
  else panel.innerHTML = '';
  };
