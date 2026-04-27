@@ -2762,28 +2762,24 @@ window.onerror = function(msg, src, line, col, err) {
  </div>
 </div>
 
-<!-- ═══ 그룹 복사/가져오기 모달 ═══ -->
+<!-- ═══ 그룹 복사 모달 ═══ -->
 <div id="copyGroupsModal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;" onclick="if(event.target===this)closeCopyGroupsModal()">
- <div style="background:#fff;border-radius:14px;width:400px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;font-family:'Pretendard',sans-serif;">
+ <div style="background:#fff;border-radius:14px;width:360px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;font-family:'Pretendard',sans-serif;">
   <div style="background:#7c3aed;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
    <div>
-    <div style="font-size:13px;font-weight:800;color:#fff;">📋 그룹 구성 복사 / 가져오기</div>
+    <div style="font-size:13px;font-weight:800;color:#fff;"> 그룹 구성 복사</div>
     <div id="cgmSrcLabel" style="font-size:10px;color:rgba(255,255,255,.7);margin-top:2px;"></div>
    </div>
    <button onclick="closeCopyGroupsModal()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;width:28px;height:28px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
   </div>
   <div style="padding:18px;">
-   <div style="display:flex;gap:0;border:1.5px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:14px;">
-    <button id="cgmTabCopyTo" onclick="setCgmMode('copyTo')" style="flex:1;padding:8px 6px;border:none;background:#7c3aed;color:#fff;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;">현재 월 → 다른 달 복사</button>
-    <button id="cgmTabCopyFrom" onclick="setCgmMode('copyFrom')" style="flex:1;padding:8px 6px;border:none;background:#f3f4f6;color:#6b7280;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;">다른 달 → 현재 월 가져오기</button>
-   </div>
-   <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px;" id="cgmSubLabel">대상 월 선택 <span style="font-weight:400;color:#9ca3af;">(중복 선택 가능)</span></div>
+   <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px;">복사할 대상 월 선택 <span style="font-weight:400;color:#9ca3af;">(중복 선택 가능)</span></div>
    <div id="cgmTargetList" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;"></div>
-   <div id="cgmWarning" style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:10px;color:#92400e;margin-bottom:14px;">
+   <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:10px;color:#92400e;margin-bottom:14px;">
     ⚠️ 선택한 월의 <b>그룹 구성(구역 묶음)</b>을 현재 월과 동일하게 덮어씁니다.<br>매출 데이터는 유지됩니다.
    </div>
    <div style="display:flex;gap:8px;">
-    <button id="cgmApplyBtn" onclick="applyCopyGroups()" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;">복사 적용</button>
+    <button onclick="applyCopyGroups()" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;">복사 적용</button>
     <button onclick="closeCopyGroupsModal()" style="flex:1;padding:10px;background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;">취소</button>
    </div>
   </div>
@@ -12807,12 +12803,33 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
        if (typeof window._refreshGroupSidePanel === 'function') window._refreshGroupSidePanel();
      }; })(gid, g);
 
+     var nameBtn = document.createElement('button');
+     nameBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #6366f133;background:transparent;color:#818cf8;cursor:pointer;flex:1;';
+     nameBtn.textContent = '✏️ 이름 수정';
+     nameBtn.onclick = (function(id, grp){ return function(e){
+       e.stopPropagation();
+       var newName = prompt('그룹 이름을 입력하세요', grp.label || '');
+       if (newName === null) return;
+       newName = newName.trim();
+       if (!newName) { showToast('이름을 비울 수 없습니다.'); return; }
+       grp.label = newName;
+       _safeSaveGroups(currentStore, window.salesGroups);
+       if (typeof syncToFirebase === 'function') syncToFirebase();
+       if (typeof window._refreshGroupSidePanel === 'function') window._refreshGroupSidePanel();
+       // 사이드 패널 그룹 카드 이름도 갱신
+       var _gcS = document.getElementById('gc-sales');
+       var _tbl = document.querySelector('#salesWrap [data-sales-panel]');
+       if (_gcS && _tbl && typeof refreshSalesContent === 'function') refreshSalesContent(_gcS, _tbl);
+       showToast('그룹 이름이 "' + newName + '"으로 변경됨');
+     }; })(gid, g);
+
      var delBtn = document.createElement('button');
      delBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #ef444433;background:transparent;color:#ef4444;cursor:pointer;';
      delBtn.textContent = '🗑 삭제';
      delBtn.onclick = (function(id){ return function(e){ e.stopPropagation(); if(typeof deleteSalesGroup==='function') deleteSalesGroup(id); }; })(gid);
 
      btnRow.appendChild(numBtn);
+     btnRow.appendChild(nameBtn);
      btnRow.appendChild(delBtn);
      row.appendChild(btnRow);
 
@@ -14074,33 +14091,16 @@ function _purgeGroupData(gid, g) {
  if (window.storeSalesGroupDataMap && window.storeSalesGroupDataMap[currentStore]) {
    delete window.storeSalesGroupDataMap[currentStore][gid];
  }
- // ⑤ monthlySalesStore — 현재 보고 있는 월만 삭제 (다른 달 그룹은 유지)
+ // ⑤ monthlySalesStore 전체 월
  if (window.monthlySalesStore && window.monthlySalesStore[currentStore]) {
-   var _delKey = (window.currentSalesMonth !== null && window.currentSalesMonth !== undefined)
-     ? _salesMonthKey(window.currentSalesMonth)
-     : null;
-   if (_delKey) {
-     // 현재 월만 삭제
-     var _delMd = window.monthlySalesStore[currentStore][_delKey];
-     if (_delMd) {
-       if (_delMd.salesGroups) delete _delMd.salesGroups[gid];
-       if (_delMd.salesGroupData) delete _delMd.salesGroupData[gid];
-       zids.forEach(function(zid) {
-         if (_delMd.salesData) delete _delMd.salesData[zid];
-         if (_delMd.areaData) delete _delMd.areaData[zid];
-       });
-     }
-   } else {
-     // 종합 탭(월 미선택)이면 전체 월 삭제 (기존 동작 유지)
-     Object.values(window.monthlySalesStore[currentStore]).forEach(function(md) {
-       if (md.salesGroups) delete md.salesGroups[gid];
-       if (md.salesGroupData) delete md.salesGroupData[gid];
-       zids.forEach(function(zid) {
-         if (md.salesData) delete md.salesData[zid];
-         if (md.areaData) delete md.areaData[zid];
-       });
+   Object.values(window.monthlySalesStore[currentStore]).forEach(function(md) {
+     if (md.salesGroups) delete md.salesGroups[gid];
+     if (md.salesGroupData) delete md.salesGroupData[gid];
+     zids.forEach(function(zid) {
+       if (md.salesData) delete md.salesData[zid];
+       if (md.areaData) delete md.areaData[zid];
      });
-   }
+   });
  }
 }
 
@@ -17062,86 +17062,40 @@ function recalcProductSalesColors(monthKey, operatingDays) {
 }
 
 /* ── 그룹 복사 모달 ── */
-// 현재 모달 방향: 'copyTo' = 현재→다른달, 'copyFrom' = 다른달→현재
-var _cgmMode = 'copyTo';
-
-function setCgmMode(mode) {
-  _cgmMode = mode;
-  var MONTH_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  var curMon = window.currentSalesMonth;
-  var tabTo   = document.getElementById('cgmTabCopyTo');
-  var tabFrom = document.getElementById('cgmTabCopyFrom');
-  var subLbl  = document.getElementById('cgmSubLabel');
-  var warning = document.getElementById('cgmWarning');
-  var applyBtn= document.getElementById('cgmApplyBtn');
-  var srcLabel= document.getElementById('cgmSrcLabel');
-
-  if (mode === 'copyTo') {
-    if (tabTo)   { tabTo.style.background='#7c3aed'; tabTo.style.color='#fff'; }
-    if (tabFrom) { tabFrom.style.background='#f3f4f6'; tabFrom.style.color='#6b7280'; }
-    if (subLbl)  subLbl.innerHTML = '복사할 <b>대상 월</b> 선택 <span style="font-weight:400;color:#9ca3af;">(중복 선택 가능)</span>';
-    if (warning) warning.innerHTML = '⚠️ 선택한 월의 <b>그룹 구성(구역 묶음)</b>을 현재 <b>' + MONTH_LABELS[curMon] + '</b>과 동일하게 덮어씁니다.<br>매출 데이터는 유지됩니다.';
-    if (applyBtn) applyBtn.textContent = '복사 적용';
-    if (srcLabel) srcLabel.textContent = '원본: ' + MONTH_LABELS[curMon] + ' → 선택한 달로 복사';
-  } else {
-    if (tabTo)   { tabTo.style.background='#f3f4f6'; tabTo.style.color='#6b7280'; }
-    if (tabFrom) { tabFrom.style.background='#7c3aed'; tabFrom.style.color='#fff'; }
-    if (subLbl)  subLbl.innerHTML = '<b>가져올 원본 월</b> 선택 <span style="font-weight:400;color:#9ca3af;">(1개만 선택)</span>';
-    if (warning) warning.innerHTML = '⚠️ 선택한 달의 그룹 구성을 <b>현재 ' + MONTH_LABELS[curMon] + '에 덮어씁니다.</b><br>현재 월의 그룹 구성이 대체됩니다. 매출 데이터는 유지됩니다.';
-    if (applyBtn) applyBtn.textContent = '가져오기 적용';
-    if (srcLabel) srcLabel.textContent = '선택한 달 → ' + MONTH_LABELS[curMon] + '으로 가져오기';
-  }
-
-  // 버튼 목록 재생성 (단일/복수 선택 안내용 스타일 차이만)
-  _cgmRenderMonthBtns();
-}
-
-function _cgmRenderMonthBtns() {
-  var curMon = window.currentSalesMonth;
-  var MONTH_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  var list = document.getElementById('cgmTargetList');
-  if (!list) return;
-  list.innerHTML = '';
-  for (var i = 0; i < 12; i++) {
-    if (i === curMon) continue;
-    (function(idx) {
-      var btn = document.createElement('button');
-      btn.textContent = MONTH_LABELS[idx];
-      btn.dataset.targetIdx = idx;
-      btn.dataset.selected = '0';
-      btn.style.cssText = 'padding:5px 13px;border-radius:20px;border:1.5px solid #e5e7eb;background:#f9fafb;color:#374151;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:all .12s;';
-      btn.onclick = function() {
-        // copyFrom 모드에선 하나만 선택
-        if (_cgmMode === 'copyFrom') {
-          list.querySelectorAll('button').forEach(function(b) {
-            b.dataset.selected = '0';
-            b.style.background = '#f9fafb';
-            b.style.color = '#374151';
-            b.style.borderColor = '#e5e7eb';
-          });
-        }
-        var sel = btn.dataset.selected === '1';
-        btn.dataset.selected = sel ? '0' : '1';
-        btn.style.background = sel ? '#f9fafb' : '#7c3aed';
-        btn.style.color = sel ? '#374151' : '#fff';
-        btn.style.borderColor = sel ? '#e5e7eb' : '#7c3aed';
-      };
-      list.appendChild(btn);
-    })(i);
-  }
-}
-
 function openCopyGroupsModal() {
   var curMon = window.currentSalesMonth;
   if (curMon === null || curMon === undefined) {
     showToast('종합 탭에서는 복사할 수 없습니다. 특정 월 탭에서 사용하세요.');
     return;
   }
-  _cgmMode = 'copyTo';
+  var MONTH_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  var srcLabel = document.getElementById('cgmSrcLabel');
+  if (srcLabel) srcLabel.textContent = '복사 원본: ' + MONTH_LABELS[curMon] + ' 그룹 구성';
+
+  var list = document.getElementById('cgmTargetList');
+  if (list) {
+    list.innerHTML = '';
+    for (var i = 0; i < 12; i++) {
+      if (i === curMon) continue;
+      (function(idx) {
+        var btn = document.createElement('button');
+        btn.textContent = MONTH_LABELS[idx];
+        btn.dataset.targetIdx = idx;
+        btn.dataset.selected = '0';
+        btn.style.cssText = 'padding:5px 13px;border-radius:20px;border:1.5px solid #e5e7eb;background:#f9fafb;color:#374151;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:all .12s;';
+        btn.onclick = function() {
+          var sel = btn.dataset.selected === '1';
+          btn.dataset.selected = sel ? '0' : '1';
+          btn.style.background = sel ? '#f9fafb' : '#7c3aed';
+          btn.style.color = sel ? '#374151' : '#fff';
+          btn.style.borderColor = sel ? '#e5e7eb' : '#7c3aed';
+        };
+        list.appendChild(btn);
+      })(i);
+    }
+  }
   var modal = document.getElementById('copyGroupsModal');
   if (modal) { modal.style.display = 'flex'; }
-  // 탭/내용 초기화
-  setCgmMode('copyTo');
 }
 
 function closeCopyGroupsModal() {
@@ -17152,67 +17106,45 @@ function closeCopyGroupsModal() {
 function applyCopyGroups() {
   var curMon = window.currentSalesMonth;
   if (curMon === null || curMon === undefined) return;
-  var MONTH_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
+  // 현재 월 그룹 구성 스냅샷
+  var srcGroups = JSON.parse(JSON.stringify(window.salesGroups || {}));
+  if (!Object.keys(srcGroups).length) {
+    showToast('현재 월에 그룹 구성이 없습니다.');
+    return;
+  }
+
+  // 선택된 대상 월 수집
+  var btns = document.querySelectorAll('#cgmTargetList button[data-selected="1"]');
+  if (!btns.length) { showToast('대상 월을 선택하세요.'); return; }
+
+  var MONTH_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   if (!window.monthlySalesStore) window.monthlySalesStore = {};
   if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
 
-  var btns = document.querySelectorAll('#cgmTargetList button[data-selected="1"]');
-  if (!btns.length) { showToast('월을 선택하세요.'); return; }
-
-  if (_cgmMode === 'copyTo') {
-    // ── 현재 월 → 선택한 달들로 복사 ──
-    var srcGroups = JSON.parse(JSON.stringify(window.salesGroups || {}));
-    if (!Object.keys(srcGroups).length) {
-      showToast('현재 월에 그룹 구성이 없습니다.');
-      return;
-    }
-    var copiedTo = [];
-    btns.forEach(function(btn) {
-      var idx = parseInt(btn.dataset.targetIdx, 10);
-      var key = _salesMonthKey(idx);
-      var existing = window.monthlySalesStore[currentStore][key] || {};
-      window.monthlySalesStore[currentStore][key] = Object.assign({}, existing, {
-        salesGroups: JSON.parse(JSON.stringify(srcGroups))
-      });
-      copiedTo.push(MONTH_LABELS[idx]);
+  var copiedTo = [];
+  btns.forEach(function(btn) {
+    var idx = parseInt(btn.dataset.targetIdx, 10);
+    var key = _salesMonthKey(idx);
+    var existing = window.monthlySalesStore[currentStore][key] || {};
+    // 그룹 구성만 덮어쓰고 매출 데이터는 유지
+    window.monthlySalesStore[currentStore][key] = Object.assign({}, existing, {
+      salesGroups: JSON.parse(JSON.stringify(srcGroups))
     });
-    if (typeof syncToFirebase === 'function') syncToFirebase();
-    if (typeof renderSalesMonthNav === 'function') renderSalesMonthNav();
-    closeCopyGroupsModal();
-    showToast('✅ ' + copiedTo.join(', ') + '에 그룹 구성 복사 완료!');
+    copiedTo.push(MONTH_LABELS[idx]);
+  });
 
-  } else {
-    // ── 선택한 달 → 현재 월로 가져오기 ──
-    var srcIdx = parseInt(btns[0].dataset.targetIdx, 10);
-    var srcKey = _salesMonthKey(srcIdx);
-    var srcMD = (window.monthlySalesStore[currentStore] || {})[srcKey] || {};
-    var srcGroups2 = srcMD.salesGroups || {};
-    if (!Object.keys(srcGroups2).length) {
-      showToast(MONTH_LABELS[srcIdx] + '에 저장된 그룹 구성이 없습니다.');
-      return;
-    }
-    // 현재 월 메모리에 적용
-    window.salesGroups = JSON.parse(JSON.stringify(srcGroups2));
-    // monthlySalesStore 현재 월에도 저장
-    var curKey = _salesMonthKey(curMon);
-    var curExisting = window.monthlySalesStore[currentStore][curKey] || {};
-    window.monthlySalesStore[currentStore][curKey] = Object.assign({}, curExisting, {
-      salesGroups: JSON.parse(JSON.stringify(srcGroups2))
-    });
-    // storeSalesGroupsMap 동기화
-    if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
-    _safeSaveGroups(currentStore, window.salesGroups);
-    // UI 갱신
-    var _gcS = document.getElementById('gc-sales');
-    var _tbl = document.querySelector('#salesWrap [data-sales-panel]');
-    if (_gcS && _tbl) { refreshSalesContent(_gcS, _tbl); } else { renderSalesView(); }
-    if (typeof window._refreshGroupSidePanel === 'function') window._refreshGroupSidePanel();
-    if (typeof syncToFirebase === 'function') syncToFirebase();
-    if (typeof renderSalesMonthNav === 'function') renderSalesMonthNav();
-    closeCopyGroupsModal();
-    showToast('✅ ' + MONTH_LABELS[srcIdx] + ' 그룹 구성을 현재 월에 가져왔습니다!');
-  }
+  // zoneProducts도 동일하게 복사 (그룹 상품 배치 포함)
+  var srcZP = JSON.parse(JSON.stringify(window.zoneProducts || {}));
+  btns.forEach(function(btn) {
+    // zoneProducts는 지점 전체 공유이므로 별도 처리 불필요 (이미 공유됨)
+  });
+
+  if (typeof syncToFirebase === 'function') syncToFirebase();
+  if (typeof renderSalesMonthNav === 'function') renderSalesMonthNav();
+
+  closeCopyGroupsModal();
+  showToast('✅ ' + copiedTo.join(', ') + '에 그룹 구성 복사 완료!');
 }
 
 /* 월 변경 시 영업일수 자동 갱신 */
