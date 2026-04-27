@@ -10400,6 +10400,66 @@ function salesBorderColor(perSales) {
  return '#15803d';
 }
 
+function _normSalesGroupKey(v) {
+ return String(v || '').trim().replace(/\s+/g, '').toLowerCase();
+}
+
+function _getCurrentSalesGroupDataMap() {
+ var cur = window.currentSalesMonth;
+ var store = window.currentStore || (typeof currentStore !== 'undefined' ? currentStore : 'gs');
+ var direct = window.salesGroupData || {};
+ if (direct && Object.keys(direct).length) return direct;
+ if (cur !== null && cur !== undefined &&
+     window.monthlySalesStore && window.monthlySalesStore[store] &&
+     window.monthlySalesStore[store][_salesMonthKey(cur)] &&
+     window.monthlySalesStore[store][_salesMonthKey(cur)].salesGroupData) {
+  return window.monthlySalesStore[store][_salesMonthKey(cur)].salesGroupData || {};
+ }
+ return direct || {};
+}
+
+function _getSalesGroupDataFor(gid, g) {
+ var gdMap = _getCurrentSalesGroupDataMap();
+ if (!gdMap) return null;
+ if (gdMap[gid]) return gdMap[gid];
+
+ var targetNames = [
+  _normSalesGroupKey(g && g.label),
+  _normSalesGroupKey(g && g.number),
+  _normSalesGroupKey(gid)
+ ].filter(Boolean);
+ if (!targetNames.length) return null;
+
+ var groups = window.salesGroups || {};
+ var matchedGid = null;
+ Object.entries(groups).some(function(entry) {
+  var id = entry[0], gg = entry[1] || {};
+  var names = [_normSalesGroupKey(gg.label), _normSalesGroupKey(gg.number), _normSalesGroupKey(id)];
+  var isSame = names.some(function(n) { return targetNames.indexOf(n) >= 0; });
+  if (isSame && gdMap[id]) { matchedGid = id; return true; }
+  return false;
+ });
+ if (matchedGid) return gdMap[matchedGid];
+
+ var byLabel = null;
+ Object.keys(gdMap).some(function(k) {
+  var nk = _normSalesGroupKey(k);
+  if (targetNames.indexOf(nk) >= 0) { byLabel = gdMap[k]; return true; }
+  return false;
+ });
+ return byLabel;
+}
+
+function _getSalesGroupTotals(gid, g, gMetrics) {
+ var gd = _getSalesGroupDataFor(gid, g);
+ var gdSales = gd ? (Number(gd.sales) || 0) : 0;
+ var gdArea = gd ? (Number(gd.area) || 0) : 0;
+ var sales = gdSales > 0 ? gdSales : gMetrics.reduce((s,m)=>s+m.sales,0);
+ var area = gdArea > 0 ? gdArea : gMetrics.reduce((s,m)=>s+m.area,0);
+ var perSales = area > 0 ? ((gdSales > 0 && gdArea > 0) ? Math.round(sales / area) : sales / area) : 0;
+ return { sales: sales, area: area, perSales: perSales, hasManual: gdSales > 0 && gdArea > 0 };
+}
+
 /* ── 숫자 포맷 ── */
 function fmtM(n) { return n >= 10000 ? Math.round(n/10000)+'억' : n >= 1000 ? Math.round(n/1000)+'천' : Math.round(n)+'만'; }
 function fmtPct(n) { return Math.round(n*100)+'%'; }
@@ -11989,12 +12049,10 @@ function renderSalesGroupBlocks(gcEl, groups, zoneGroupMap, metricMap, maxPerSal
  if (!zids.length) return;
 
  var gMetrics = zids.map(zid => metricMap[zid]).filter(Boolean);
- var gd = (window.salesGroupData && window.salesGroupData[gid]) ? window.salesGroupData[gid] : null;
- var gdSales = gd ? (Number(gd.sales) || 0) : 0;
- var gdArea = gd ? (Number(gd.area) || 0) : 0;
- var tSales = gdSales > 0 ? gdSales : gMetrics.reduce((s,m)=>s+m.sales,0);
- var tArea = gdArea > 0 ? gdArea : gMetrics.reduce((s,m)=>s+m.area, 0);
- var tPS = tArea > 0 ? ((gdSales > 0 && gdArea > 0) ? Math.round(tSales / tArea) : Math.floor(tSales / tArea)) : 0;
+ var gTotals = _getSalesGroupTotals(gid, g, gMetrics);
+ var tSales = gTotals.sales;
+ var tArea = gTotals.area;
+ var tPS = tArea > 0 ? (gTotals.hasManual ? gTotals.perSales : Math.floor(gTotals.perSales)) : 0;
  var avgGrade =
  gMetrics.filter(m=>m.grade==='A').length > gMetrics.length/2 ? 'A' :
  gMetrics.filter(m=>m.grade==='C').length > gMetrics.length/2 ? 'C' : 'B';
@@ -13143,9 +13201,10 @@ function renderRankTab(container, metrics, avgPerSales, highEff, sorted_ps) {
  const zids = (g.zoneIds || []).filter(zid => metricMap[zid]);
  if (!zids.length) return;
  const gm = zids.map(zid => metricMap[zid]);
- const tSales = gm.reduce((s,m)=>s+m.sales, 0);
- const tArea = gm.reduce((s,m)=>s+m.area, 0);
- const perSales = tArea > 0 ? tSales / tArea : 0;
+ const gt = _getSalesGroupTotals(gid, g, gm);
+ const tSales = gt.sales;
+ const tArea = gt.area;
+ const perSales = gt.perSales;
  rankItems.push({ name: g.label, sales: tSales, area: tArea, perSales, color: g.color, gid, zids });
  });
  rankItems.sort((a,b) => b.perSales - a.perSales);
@@ -13381,9 +13440,10 @@ function buildGroupItems(metrics) {
  const zids = (g.zoneIds||[]).filter(zid=>metricMap[zid]);
  if (!zids.length) return null;
  const gm = zids.map(zid=>metricMap[zid]);
- const sales = gm.reduce((s,m)=>s+m.sales, 0);
- const area = gm.reduce((s,m)=>s+m.area, 0);
- const perSales = area > 0 ? sales / area : 0;
+ const gt = _getSalesGroupTotals(gid, g, gm);
+ const sales = gt.sales;
+ const area = gt.area;
+ const perSales = gt.perSales;
  const contrib = totalSales > 0 ? sales / totalSales : 0;
  const areaShare= totalArea > 0 ? area / totalArea : 0;
  const effIdx = areaShare > 0 ? contrib / areaShare : 0;
@@ -13833,9 +13893,10 @@ function renderGroupTab(container, metrics) {
  const gid=entry[0],g=entry[1];
  const gm=(g.zoneIds||[]).map(zid=>metricMap[zid]).filter(Boolean);
  if(!gm.length) return;
- const tS=gm.reduce((s,m)=>s+m.sales,0),tA=gm.reduce((s,m)=>s+m.area,0);
+ const gt=_getSalesGroupTotals(gid,g,gm);
+ const tS=gt.sales,tA=gt.area;
  const _gh2=1;
- const tPS=tA>0?Math.round(tS/tA):0;
+ const tPS=tA>0?Math.round(gt.perSales):0;
  const aG=gm.filter(m=>m.grade==='A').length>gm.length/2?'A':gm.filter(m=>m.grade==='C').length>gm.length/2?'C':'B';
  const maxGPS=Math.max(...gm.map(m=>m.perSales),1);
  const card=document.createElement('div');
