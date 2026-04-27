@@ -1852,10 +1852,22 @@ body.viewer-mode #salesMonthNav > div > button{
    && data && data.monthlySales) {
   var _curMKey = 'm' + window.currentSalesMonth;
   var _curMD = data.monthlySales[_curMKey];
-  if (_curMD && _curMD.salesGroups && Object.keys(_curMD.salesGroups).length > 0) {
-   window.salesGroups = JSON.parse(JSON.stringify(_curMD.salesGroups));
-   if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
-   window.storeSalesGroupsMap[store] = JSON.parse(JSON.stringify(_curMD.salesGroups));
+  if (_curMD) {
+   if (_curMD.salesGroups && Object.keys(_curMD.salesGroups).length > 0) {
+    window.salesGroups = JSON.parse(JSON.stringify(_curMD.salesGroups));
+    if (!window.storeSalesGroupsMap) window.storeSalesGroupsMap = {};
+    window.storeSalesGroupsMap[store] = JSON.parse(JSON.stringify(_curMD.salesGroups));
+   }
+   // salesData / areaData도 현재 월에 맞게 즉시 복원 (도면 반영 누락 방지)
+   if (_curMD.salesData && Object.keys(_curMD.salesData).length > 0) {
+    window.salesData = JSON.parse(JSON.stringify(_curMD.salesData));
+   }
+   if (_curMD.areaData && Object.keys(_curMD.areaData).length > 0) {
+    window.areaData = JSON.parse(JSON.stringify(_curMD.areaData));
+   }
+   if (_curMD.salesGroupData) {
+    window.salesGroupData = JSON.parse(JSON.stringify(_curMD.salesGroupData));
+   }
   }
   // 평당매출탭이 현재 열려 있으면 도면 재렌더 (다른 기기 변경사항 반영)
   var _salWrap = document.getElementById('salesWrap');
@@ -10327,17 +10339,24 @@ function calcSalesMetrics() {
  }
 
  // ── 특정 월 또는 월별 데이터 없는 종합: 기존 방식 ──
+ // 평수 기본값: areaData가 없으면 cellCount 기반 추정 (0.1 사용 금지 — 극단적 perSales 방지)
+ function _defaultArea(z) {
+  var a = window.areaData[z.id];
+  if (a && a > 0) return a;
+  // cellCount 기반 추정: 1 cell ≈ 0.33평 (약 1.1m²)
+  return Math.max(0.33, (z.cols||1) * (z.rows||1) * 0.33);
+ }
  const totalSales = dataZones.reduce((s, z) => s + (window.salesData[z.id] || 0), 0);
- const totalArea = dataZones.reduce((s, z) => s + (window.areaData[z.id] || 0.1), 0);
+ const totalArea = dataZones.reduce((s, z) => s + _defaultArea(z), 0);
  const allPerSales = dataZones
- .filter(z => (window.areaData[z.id] || 0) > 0)
- .map(z => (window.salesData[z.id] || 0) / (window.areaData[z.id] || 0.1));
+  .filter(z => (window.salesData[z.id] || 0) > 0)
+  .map(z => (window.salesData[z.id] || 0) / _defaultArea(z));
  const avgPerSales = allPerSales.length ? allPerSales.reduce((a,b)=>a+b,0)/allPerSales.length : 1;
 
  return dataZones.map(z => {
- const sales = window.salesData[z.id] || 0;
- const area = window.areaData[z.id] || 0.1;
- const perSales = area > 0 ? sales / area : 0;
+  const sales = window.salesData[z.id] || 0;
+  const area = _defaultArea(z);
+  const perSales = area > 0 ? sales / area : 0;
  const contrib = totalSales > 0 ? sales / totalSales : 0;
  const areaShare= totalArea > 0 ? area / totalArea : 0;
  const effIdx = areaShare > 0 ? contrib / areaShare : 0;
@@ -10486,7 +10505,8 @@ function switchSalesMonth(monthIdx) {
  const existingPrev = window.monthlySalesStore[currentStore][prevKey];
  // 실제 매출 데이터가 있을 때만 저장 (그룹 구조만 있는 경우는 저장 안 함)
  const hasSalesData = Object.keys(window.salesData||{}).length > 0
-   || Object.keys(window.salesGroupData||{}).length > 0;
+   || Object.keys(window.salesGroupData||{}).length > 0
+   || Object.keys(window.salesGroups||{}).length > 0;
  if (hasSalesData) {
    window.monthlySalesStore[currentStore][prevKey] = {
    salesData: JSON.parse(JSON.stringify(window.salesData || {})),
@@ -10646,6 +10666,20 @@ function refreshSalesContent(gcEl, panelEl) {
  zEl.style.boxShadow = 'none';
  zEl.style.outline = 'none';
  zEl.style.pointerEvents = 'none';
+ // 도면탭과 동일한 빨간 화살표 SVG 표시
+ var _entDirR = (zDataR && zDataR.color && zDataR.color.startsWith('ent_')) ? zDataR.color : 'ent_up';
+ var _entArrowsR = {
+  ent_up:    '<polygon points="50,5 95,60 72,60 72,95 28,95 28,60 5,60" fill="#dc2626"/>',
+  ent_down:  '<polygon points="50,95 95,40 72,40 72,5 28,5 28,40 5,40" fill="#dc2626"/>',
+  ent_left:  '<polygon points="5,50 60,5 60,28 95,28 95,72 60,72 60,95" fill="#dc2626"/>',
+  ent_right: '<polygon points="95,50 40,5 40,28 5,28 5,72 40,72 40,95" fill="#dc2626"/>',
+ };
+ var _arrowPolyR = _entArrowsR[_entDirR] || _entArrowsR.ent_up;
+ var ziR = zEl.querySelector('.zi');
+ if (ziR) {
+  ziR.innerHTML = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:70%;height:70%;flex-shrink:0;">' + _arrowPolyR + '</svg>';
+  ziR.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;';
+ }
  return;
  }
  if (isCpillar || isCw || isPillarTypeR) {
@@ -11087,22 +11121,26 @@ function salesZoomFit() {
  tblCol.setAttribute('data-sales-panel', '1');
  body.appendChild(tblCol);
 
- // DOM 입력 폼이 열려 있으면 salesGroupData를 실시간 동기화 (단, 엑셀로 저장된 값은 덮지 않음)
+ // DOM 입력 폼이 실제로 열려(visible) 있을 때만 salesGroupData 동기화
+ // closeSalesDataModal() 이후(display:none)에는 절대 덮어쓰지 않음
  (function syncGroupDataFromDOM() {
- const groups = window.salesGroups || {};
- if (!Object.keys(groups).length) return;
- window.salesGroupData = window.salesGroupData || {};
- Object.keys(groups).forEach(function(gid) {
- const sv_el = document.getElementById('gdsi_sales_' + gid);
- const av_el = document.getElementById('gdsi_area_' + gid);
- if (!sv_el || !av_el) return;
- const gSales = parseFloat(sv_el.value) || 0;
- const gArea = parseFloat(av_el.value) || 0;
- // DOM값이 있을 때만 업데이트 (0이면 기존 salesGroupData 유지)
- if (gSales > 0 || gArea > 0) {
- window.salesGroupData[gid] = { sales: gSales, area: gArea };
- }
- });
+  var _modal = document.getElementById('salesDataModal');
+  var _modalOpen = _modal && _modal.style.display !== 'none';
+  if (!_modalOpen) return; // 모달이 닫혀 있으면 스킵
+  const groups = window.salesGroups || {};
+  if (!Object.keys(groups).length) return;
+  window.salesGroupData = window.salesGroupData || {};
+  Object.keys(groups).forEach(function(gid) {
+   const sv_el = document.getElementById('gdsi_sales_' + gid);
+   const av_el = document.getElementById('gdsi_area_' + gid);
+   if (!sv_el || !av_el) return;
+   const gSales = parseFloat(sv_el.value) || 0;
+   const gArea = parseFloat(av_el.value) || 0;
+   // DOM값이 있을 때만 업데이트 (0이면 기존 salesGroupData 유지)
+   if (gSales > 0 || gArea > 0) {
+    window.salesGroupData[gid] = { sales: gSales, area: gArea };
+   }
+  });
  })();
 
  // 계산
@@ -11544,6 +11582,19 @@ function renderSalesMap(container, metrics, maxPerSales) {
  zEl.style.boxShadow = 'none';
  zEl.style.outline = 'none';
  zEl.style.pointerEvents = 'none';
+ // 도면탭과 동일한 빨간 화살표 SVG 표시
+ var _entDir = (zData && zData.color && zData.color.startsWith('ent_')) ? zData.color : 'ent_up';
+ var _entArrows = {
+  ent_up:    '<polygon points="50,5 95,60 72,60 72,95 28,95 28,60 5,60" fill="#dc2626"/>',
+  ent_down:  '<polygon points="50,95 95,40 72,40 72,5 28,5 28,40 5,40" fill="#dc2626"/>',
+  ent_left:  '<polygon points="5,50 60,5 60,28 95,28 95,72 60,72 60,95" fill="#dc2626"/>',
+  ent_right: '<polygon points="95,50 40,5 40,28 5,28 5,72 40,72 40,95" fill="#dc2626"/>',
+ };
+ var _arrowPoly = _entArrows[_entDir] || _entArrows.ent_up;
+ if (zi) {
+  zi.innerHTML = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:70%;height:70%;flex-shrink:0;">' + _arrowPoly + '</svg>';
+  zi.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;';
+ }
  return;
  }
 
@@ -14331,6 +14382,28 @@ function openSalesDataModal() {
   if (!isAdmin) { showToast('️ 관리자만 데이터를 입력할 수 있습니다'); return; }
   if (!document.getElementById('salesDataModal')) buildSalesDataModal();
 
+  // ── 모달 열기 전: 현재 월의 salesGroupData/salesGroups 확실하게 동기화 ──
+  var _omo = window.currentSalesMonth;
+  if (_omo !== null && _omo !== undefined &&
+      window.monthlySalesStore && window.monthlySalesStore[currentStore]) {
+    var _omd = window.monthlySalesStore[currentStore][_salesMonthKey(_omo)];
+    if (_omd) {
+      if (_omd.salesGroupData && Object.keys(_omd.salesGroupData).length > 0) {
+        window.salesGroupData = JSON.parse(JSON.stringify(_omd.salesGroupData));
+      }
+      if (_omd.salesGroups && Object.keys(_omd.salesGroups).length > 0 &&
+          !Object.keys(window.salesGroups || {}).length) {
+        window.salesGroups = JSON.parse(JSON.stringify(_omd.salesGroups));
+      }
+      if (_omd.salesData && Object.keys(_omd.salesData).length > 0) {
+        window.salesData = JSON.parse(JSON.stringify(_omd.salesData));
+      }
+      if (_omd.areaData && Object.keys(_omd.areaData).length > 0) {
+        window.areaData = JSON.parse(JSON.stringify(_omd.areaData));
+      }
+    }
+  }
+
   const body = document.getElementById('salesDataBody');
   if (!body) return;
   body.innerHTML = '';
@@ -15178,93 +15251,116 @@ function downloadExcelTemplate() {
 
 /* ── 데이터 적용 — 그룹 단위 + 집기 단위 통합 ── */
 function applySalesData() {
- const groups = window.salesGroups || {};
- const hasGroups = Object.keys(groups).length > 0;
-
- // salesGroupData 초기화
+ // salesData/areaData/salesGroupData 초기화
+ window.salesData      = window.salesData      || {};
+ window.areaData       = window.areaData       || {};
  window.salesGroupData = window.salesGroupData || {};
 
+ // 현재 활성 그룹: window.salesGroups 우선, 비어있으면 storeSalesGroupsMap 폴백
+ var groups = window.salesGroups || {};
+ if (!Object.keys(groups).length && window.storeSalesGroupsMap && window.storeSalesGroupsMap[currentStore]) {
+  groups = window.storeSalesGroupsMap[currentStore] || {};
+  if (Object.keys(groups).length) window.salesGroups = JSON.parse(JSON.stringify(groups));
+ }
+ const hasGroups = Object.keys(groups).length > 0;
+
  if (hasGroups) {
- // ① 그룹 입력값 저장 + 그룹 내 각 집기에 按分(평수비례) 배분
- Object.entries(groups).forEach(function([gid, g]) {
- const sv_el = document.getElementById('gdsi_sales_'+gid);
- const av_el = document.getElementById('gdsi_area_' +gid);
- if (!sv_el||!av_el) return;
+  // ① 그룹 입력값 수집 + 집기 균등 배분
+  Object.entries(groups).forEach(function([gid, g]) {
+   const sv_el = document.getElementById('gdsi_sales_' + gid);
+   const av_el = document.getElementById('gdsi_area_'  + gid);
 
- const gSales = parseFloat(sv_el.value) || 0;
- const gArea = parseFloat(av_el.value) || 0;
+   // DOM에 필드 없으면 (다른 카테고리 탭에 숨겨진 그룹) 기존 데이터 보호
+   if (!sv_el || !av_el) return;
 
- // 그룹 전체 데이터 저장
- window.salesGroupData[gid] = { sales: gSales, area: gArea };
+   const rawSales = sv_el.value.trim();
+   const rawArea  = av_el.value.trim();
 
- // 그룹 내 집기들에게 평수 비례로 按分
- const zids = (g.zoneIds || []).filter(zid => zones.find(z=>z.id===zid));
- if (!zids.length || !gArea) {
- // 평수 입력 없으면 균등 배분
- const perZone = zids.length ? Math.round(gSales / zids.length) : 0;
- zids.forEach(zid => {
- window.salesData[zid] = perZone;
- window.areaData[zid] = gArea / (zids.length || 1);
- });
- } else {
- // 각 집기 평수 = 그룹 전체 평수 / 집기 수 (단순 균등 - 개별 입력 불가 방침)
- const areaPerZone = gArea / zids.length;
- const salesPerZone = gSales / zids.length;
- zids.forEach(zid => {
- window.salesData[zid] = Math.round(salesPerZone / 10) * 10;
- window.areaData[zid] = parseFloat(areaPerZone);
- });
+   // 두 필드 모두 비어있으면 이 그룹은 건드리지 않음
+   if (rawSales === '' && rawArea === '') return;
+
+   const gSales = parseFloat(rawSales) || 0;
+   const gArea  = parseFloat(rawArea)  || 0;
+
+   window.salesGroupData[gid] = { sales: gSales, area: gArea };
+
+   const zids = (g.zoneIds || []).filter(function(zid) {
+    return zones.find(function(z) { return z.id === zid; });
+   });
+   if (!zids.length) return;
+
+   const salesPerZone = gSales / zids.length;
+   zids.forEach(function(zid) {
+    window.salesData[zid] = Math.round(salesPerZone / 10) * 10;
+    if (gArea > 0) {
+     window.areaData[zid] = parseFloat((gArea / zids.length).toFixed(2));
+    }
+   });
+  });
  }
- });
- }
 
- // ② 미지정 집기 (집기 단위 입력) 처리
+ // ② 미지정 집기 개별 입력
  const allGroupedZids = new Set();
- Object.values(groups).forEach(g => (g.zoneIds||[]).forEach(zid => allGroupedZids.add(zid)));
-
- const nonSales = new Set(['입구','기둥']);
- const ungrouped = zones.filter(z =>
- !nonSales.has(z.name) &&
- !String(z.color).startsWith('ent') &&
- z.color !== 'cpillar' &&
- !allGroupedZids.has(z.id)
- );
- ungrouped.forEach(z => {
- const sEl = document.getElementById('sdi_sales_'+z.id);
- const aEl = document.getElementById('sdi_area_' +z.id);
- if (sEl && sEl.value !== '') window.salesData[z.id] = parseFloat(sEl.value) || 0;
- if (aEl && aEl.value !== '') window.areaData[z.id] = parseFloat(aEl.value) || 0.1;
+ Object.values(groups).forEach(function(g) {
+  (g.zoneIds || []).forEach(function(zid) { allGroupedZids.add(zid); });
  });
 
- // salesGroupData 현재 지점 즉시 백업
+ const nonSales = new Set(['입구', '기둥']);
+ zones.filter(function(z) {
+  return !nonSales.has(z.name) &&
+   !String(z.color).startsWith('ent') &&
+   z.color !== 'cpillar' &&
+   !allGroupedZids.has(z.id);
+ }).forEach(function(z) {
+  const sEl = document.getElementById('sdi_sales_' + z.id);
+  const aEl = document.getElementById('sdi_area_'  + z.id);
+  if (sEl && sEl.value.trim() !== '') window.salesData[z.id] = parseFloat(sEl.value) || 0;
+  if (aEl && aEl.value.trim() !== '') window.areaData[z.id]  = parseFloat(aEl.value) || 0;
+ });
+
+ // ── 전역 맵 백업
  if (!window.storeSalesGroupDataMap) window.storeSalesGroupDataMap = {};
- window.storeSalesGroupDataMap[currentStore] = JSON.parse(JSON.stringify(window.salesGroupData || {}));
+ if (!window.storeSalesDataMap)      window.storeSalesDataMap = {};
+ if (!window.storeAreaDataMap)       window.storeAreaDataMap = {};
+ window.storeSalesGroupDataMap[currentStore] = JSON.parse(JSON.stringify(window.salesGroupData));
+ window.storeSalesDataMap[currentStore]      = JSON.parse(JSON.stringify(window.salesData));
+ window.storeAreaDataMap[currentStore]       = JSON.parse(JSON.stringify(window.areaData));
 
- // storeSalesDataMap / storeAreaDataMap 백업
- if (!window.storeSalesDataMap) window.storeSalesDataMap = {};
- if (!window.storeAreaDataMap) window.storeAreaDataMap = {};
- window.storeSalesDataMap[currentStore] = JSON.parse(JSON.stringify(window.salesData || {}));
- window.storeAreaDataMap[currentStore] = JSON.parse(JSON.stringify(window.areaData || {}));
+ // ── monthlySalesStore 즉시 반영
+ if (!window.monthlySalesStore) window.monthlySalesStore = {};
+ if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
 
- // monthlySalesStore에도 즉시 반영 (매출 업로드 데이터 덮어씌움 방지)
  var _curMo = window.currentSalesMonth;
+ var _activeGrps = _getActiveGroups(currentStore);
+ if (!Object.keys(_activeGrps).length && hasGroups) _activeGrps = groups;
+
  if (_curMo !== null && _curMo !== undefined) {
-   if (!window.monthlySalesStore) window.monthlySalesStore = {};
-   if (!window.monthlySalesStore[currentStore]) window.monthlySalesStore[currentStore] = {};
-   var _moKey = _salesMonthKey(_curMo);
-   window.monthlySalesStore[currentStore][_moKey] = {
-     salesData: JSON.parse(JSON.stringify(window.salesData || {})),
-     areaData: JSON.parse(JSON.stringify(window.areaData || {})),
-     salesGroups: JSON.parse(JSON.stringify(_getActiveGroups(currentStore))),
-     salesGroupData: JSON.parse(JSON.stringify(window.salesGroupData || {}))
+  // 특정 월 슬롯에 저장
+  window.monthlySalesStore[currentStore][_salesMonthKey(_curMo)] = {
+   salesData:      JSON.parse(JSON.stringify(window.salesData)),
+   areaData:       JSON.parse(JSON.stringify(window.areaData)),
+   salesGroups:    JSON.parse(JSON.stringify(_activeGrps)),
+   salesGroupData: JSON.parse(JSON.stringify(window.salesGroupData))
+  };
+ } else {
+  // 종합 탭: curMonthIdx 슬롯에도 저장 (손실 방지)
+  var _fallbackIdx = (typeof curMonthIdx !== 'undefined') ? curMonthIdx : new Date().getMonth();
+  var _fbKey = _salesMonthKey(_fallbackIdx);
+  var _existFb = window.monthlySalesStore[currentStore][_fbKey] || {};
+  if (!Object.keys(_existFb.salesData || {}).length) {
+   window.monthlySalesStore[currentStore][_fbKey] = {
+    salesData:      JSON.parse(JSON.stringify(window.salesData)),
+    areaData:       JSON.parse(JSON.stringify(window.areaData)),
+    salesGroups:    JSON.parse(JSON.stringify(_activeGrps)),
+    salesGroupData: JSON.parse(JSON.stringify(window.salesGroupData))
    };
+  }
  }
 
  closeSalesDataModal();
- showToast(' 데이터 저장 완료 — Firebase 동기화 중...');
+ showToast('\u2705 데이터 저장 완료 — Firebase 동기화 중...');
  renderSalesView();
 
- // Firebase 자동 저장
  if (typeof syncToFirebase === 'function') syncToFirebase();
 }
 
@@ -16410,6 +16506,25 @@ function saveZoneProductsAndClose() {
 /* ══════════════════════════════════════════════════════════════════
    📊 상품별 매출 업로드 → 자동 평당매출 계산
 ══════════════════════════════════════════════════════════════════ */
+function _salesProductKey(name) {
+  return String(name || '')
+    .trim()
+    .replace(/[.#$\/\[\]()*\s]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '') || '_';
+}
+
+function _getProductSalesValue(psdAll, productName) {
+  if (!psdAll || productName === null || productName === undefined) return undefined;
+  var rawKey = String(productName);
+  var safeKey = _salesProductKey(rawKey);
+  var legacyKey = rawKey.replace(/[.#$\/\[\]]/g, '_');
+  if (Object.prototype.hasOwnProperty.call(psdAll, rawKey)) return Number(psdAll[rawKey]) || 0;
+  if (Object.prototype.hasOwnProperty.call(psdAll, safeKey)) return Number(psdAll[safeKey]) || 0;
+  if (Object.prototype.hasOwnProperty.call(psdAll, legacyKey)) return Number(psdAll[legacyKey]) || 0;
+  return undefined;
+}
+
 function openProductSalesUploadModal() {
   if (!isAdmin) { showToast('관리자만 접근할 수 있습니다'); return; }
   const existing = document.getElementById('productSalesUploadModal');
@@ -16645,7 +16760,7 @@ function applyProductSalesData() {
   rows.forEach(function(r) {
     var salesInMan = isWon ? r.sales / 10000 : r.sales;
     // Firebase 키 금지문자 제거 (. # $ / [ ] ( ) * 공백 → _)
-    var safeKey = r.productName.replace(/[.#$\/\[\]()*\s]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || '_';
+    var safeKey = _salesProductKey(r.productName);
     // 월매출(만원) 그대로 저장 (소수점 손실 방지)
     window.productSalesData[monthVal][safeKey] = Math.round(salesInMan * 100) / 100;
   });
@@ -16672,8 +16787,8 @@ function applyProductSalesData() {
     }
   }
 
-  // ③ 계산 & 도면 반영
-  recalcProductSalesColors(monthVal);
+  // ③ 계산 & 도면 반영 (영업일수 전달)
+  recalcProductSalesColors(monthVal, operatingDays);
 
   // ④ 해당 월 탭으로 이동 (다른 월 보고 있었다면)
   if (uploadMonthIdx !== null && window.currentSalesMonth !== uploadMonthIdx) {
@@ -16711,7 +16826,7 @@ function downloadProductSalesTemplate() {
 /* ══════════════════════════════════════════════════════════════════
    🎨 상품 매출 → 구역 평당매출 자동 계산 & 도면 색상 반영
 ══════════════════════════════════════════════════════════════════ */
-function recalcProductSalesColors(monthKey) {
+function recalcProductSalesColors(monthKey, operatingDays) {
   // monthKey 예: '2025-04' 또는 'all'
   if (!monthKey) {
     var curMon = window.currentSalesMonth;
@@ -16720,6 +16835,12 @@ function recalcProductSalesColors(monthKey) {
       ? yr + '-' + String(curMon+1).padStart(2,'0')
       : yr + '-' + String(new Date().getMonth()+1).padStart(2,'0');
   }
+  // 영업일수 결정: 인수로 받거나, productSalesData에 저장된 값 사용, 기본 1
+  if (!operatingDays || operatingDays < 1) {
+    var _psdMonth = (window.productSalesData || {})[monthKey] || {};
+    operatingDays = _psdMonth.__operatingDays || 1;
+  }
+  operatingDays = Math.max(1, Math.min(31, operatingDays));
 
   // 'YYYY-MM' → 월 인덱스(0~11) 변환
   var targetMonthIdx = null;
@@ -16771,11 +16892,12 @@ function recalcProductSalesColors(monthKey) {
     var totalSalesMon = 0;
     var mappedCount = 0;
     products.forEach(function(p) {
-      if (psdAll[p] !== undefined) { totalSalesMon += psdAll[p]; mappedCount++; }
+      var salesVal = _getProductSalesValue(psdAll, p);
+      if (salesVal !== undefined) { totalSalesMon += salesVal; mappedCount++; }
     });
     if (mappedCount === 0) return;
-    // 월매출 → 하루매출(만원) 변환
-    var totalSales = Math.round(totalSalesMon);
+    // 월매출 → 하루매출(만원) 변환 (영업일수로 나눔)
+    var totalSales = Math.round(totalSalesMon / operatingDays);
 
     var zids = g.zoneIds || [];
     var totalArea = 0;
@@ -16810,11 +16932,12 @@ function recalcProductSalesColors(monthKey) {
     if (!products.length) return;
     var totalSalesMon2 = 0, mappedCount = 0;
     products.forEach(function(p) {
-      if (psdAll[p] !== undefined) { totalSalesMon2 += psdAll[p]; mappedCount++; }
+      var salesVal = _getProductSalesValue(psdAll, p);
+      if (salesVal !== undefined) { totalSalesMon2 += salesVal; mappedCount++; }
     });
     if (mappedCount === 0) return;
-    // 월매출 → 하루매출(만원) 변환
-    var totalSales = Math.round(totalSalesMon2);
+    // 월매출 → 하루매출(만원) 변환 (영업일수로 나눔)
+    var totalSales = Math.round(totalSalesMon2 / operatingDays);
     var area = baseAreaData[z.id] || Math.max(1, z.cellCount || 1);
     baseSalesData[z.id] = totalSales;
     baseAreaData[z.id] = area;
