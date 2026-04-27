@@ -12692,7 +12692,7 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  groupCol.id = 'salesGroupSidePanel';
  const hasEdit = (typeof salesGroupEditMode !== 'undefined') && salesGroupEditMode && isAdmin && !isViewer;
  groupCol.style.cssText = 'display:flex;flex-direction:column;overflow:hidden;transition:width .2s ease,border .2s ease;border-left:' +
- (hasEdit ? '2px solid #6366f1' : 'none') + ';width:' + (hasEdit ? '220px' : '0') + ';flex-shrink:0;background:#0f172a;';
+ (hasEdit ? '2px solid #6366f1' : 'none') + ';width:' + (hasEdit ? '270px' : '0') + ';flex-shrink:0;background:#0f172a;';
 
  outerFlex.appendChild(analysisCol);
  outerFlex.appendChild(groupCol);
@@ -12786,13 +12786,13 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
 
      row.appendChild(topRow);
 
-     // 하단 행: # 수정 + 삭제 버튼
+     // 하단 행: # 수정 + 이름수정 + 삭제 버튼
      var btnRow = document.createElement('div');
-     btnRow.style.cssText = 'display:flex;gap:5px;padding-left:22px;';
+     btnRow.style.cssText = 'display:flex;gap:4px;padding-left:10px;margin-top:2px;';
 
      var numBtn = document.createElement('button');
-     numBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #334155;background:transparent;color:#64748b;cursor:pointer;flex:1;';
-     numBtn.textContent = '# 넘버 수정';
+     numBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 7px;border-radius:4px;border:1px solid #334155;background:transparent;color:#64748b;cursor:pointer;white-space:nowrap;flex:1;';
+     numBtn.textContent = '# 넘버';
      numBtn.onclick = (function(id, grp){ return function(e){
        e.stopPropagation();
        var newNum = prompt('넘버를 입력하세요 (예: 1, 1-1, 2 등)\n비워두면 표시 안 됨', grp.number || '');
@@ -12804,8 +12804,8 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
      }; })(gid, g);
 
      var nameBtn = document.createElement('button');
-     nameBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #6366f133;background:transparent;color:#818cf8;cursor:pointer;flex:1;';
-     nameBtn.textContent = '✏️ 이름 수정';
+     nameBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 7px;border-radius:4px;border:1px solid #6366f133;background:transparent;color:#818cf8;cursor:pointer;white-space:nowrap;flex:1;';
+     nameBtn.textContent = '✏️ 이름';
      nameBtn.onclick = (function(id, grp){ return function(e){
        e.stopPropagation();
        var newName = prompt('그룹 이름을 입력하세요', grp.label || '');
@@ -12816,16 +12816,16 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
        _safeSaveGroups(currentStore, window.salesGroups);
        if (typeof syncToFirebase === 'function') syncToFirebase();
        if (typeof window._refreshGroupSidePanel === 'function') window._refreshGroupSidePanel();
-       // 사이드 패널 그룹 카드 이름도 갱신
        var _gcS = document.getElementById('gc-sales');
        var _tbl = document.querySelector('#salesWrap [data-sales-panel]');
        if (_gcS && _tbl && typeof refreshSalesContent === 'function') refreshSalesContent(_gcS, _tbl);
-       showToast('그룹 이름이 "' + newName + '"으로 변경됨');
+       showToast('이름 변경: "' + newName + '"');
      }; })(gid, g);
 
      var delBtn = document.createElement('button');
-     delBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #ef444433;background:transparent;color:#ef4444;cursor:pointer;';
-     delBtn.textContent = '🗑 삭제';
+     delBtn.style.cssText = 'font-family:inherit;font-size:9px;font-weight:700;padding:3px 7px;border-radius:4px;border:1px solid #ef444433;background:transparent;color:#ef4444;cursor:pointer;white-space:nowrap;';
+     delBtn.textContent = '🗑';
+     delBtn.title = '그룹 삭제';
      delBtn.onclick = (function(id){ return function(e){ e.stopPropagation(); if(typeof deleteSalesGroup==='function') deleteSalesGroup(id); }; })(gid);
 
      btnRow.appendChild(numBtn);
@@ -12860,7 +12860,7 @@ function renderSalesPanel(container, metrics, maxPerSales, avgPerSales, totalSal
  const panel = document.getElementById('salesGroupSidePanel');
  if (!panel) return;
  const on = (typeof salesGroupEditMode !== 'undefined') && salesGroupEditMode && isAdmin && !isViewer;
- panel.style.width = on ? '220px' : '0';
+ panel.style.width = on ? '270px' : '0';
  panel.style.borderLeft = on ? '2px solid #6366f1' : 'none';
  if (on) renderGroupSidePanel();
  else panel.innerHTML = '';
